@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery } from 'react-query';
 import { FaFilter, FaBookmark, FaSearch } from 'react-icons/fa';
-import axios from 'axios';
+import axios from '../../setupAxios';
 import PollCard from '../../components/polls/PollCard';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 

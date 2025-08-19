@@ -1,7 +1,7 @@
 import React from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useQuery } from 'react-query';
-import axios from 'axios';
+import axios from '../setupAxios';
 import PollCard from '../components/polls/PollCard';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 

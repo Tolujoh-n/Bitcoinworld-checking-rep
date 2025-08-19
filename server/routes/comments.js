@@ -67,6 +67,15 @@ router.post('/', auth, async (req, res) => {
     // Populate user info
     await comment.populate('user', 'username avatar');
 
+    // Emit socket event
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`poll-${pollId}`).emit('comment-created', {
+        pollId,
+        comment
+      });
+    }
+
     res.status(201).json({
       message: 'Comment created successfully',
       comment
@@ -109,6 +118,15 @@ router.put('/:id', auth, async (req, res) => {
     // Populate user info
     await comment.populate('user', 'username avatar');
 
+    // Emit socket event
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`poll-${comment.poll}`).emit('comment-updated', {
+        pollId: comment.poll,
+        comment
+      });
+    }
+
     res.json({
       message: 'Comment updated successfully',
       comment
@@ -138,6 +156,15 @@ router.delete('/:id', auth, async (req, res) => {
     // Soft delete the comment
     await comment.softDelete();
 
+    // Emit socket event
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`poll-${comment.poll}`).emit('comment-deleted', {
+        pollId: comment.poll,
+        commentId: comment._id
+      });
+    }
+
     res.json({ message: 'Comment deleted successfully' });
   } catch (error) {
     console.error('Delete comment error:', error);
@@ -157,6 +184,17 @@ router.post('/:id/like', auth, async (req, res) => {
     }
 
     await comment.like(req.user._id);
+
+    // Emit socket event
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`poll-${comment.poll}`).emit('comment-reacted', {
+        pollId: comment.poll,
+        commentId: comment._id,
+        likeCount: comment.likeCount,
+        dislikeCount: comment.dislikeCount
+      });
+    }
 
     res.json({
       message: 'Comment liked successfully',
@@ -181,6 +219,17 @@ router.post('/:id/dislike', auth, async (req, res) => {
     }
 
     await comment.dislike(req.user._id);
+
+    // Emit socket event
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`poll-${comment.poll}`).emit('comment-reacted', {
+        pollId: comment.poll,
+        commentId: comment._id,
+        likeCount: comment.likeCount,
+        dislikeCount: comment.dislikeCount
+      });
+    }
 
     res.json({
       message: 'Comment disliked successfully',

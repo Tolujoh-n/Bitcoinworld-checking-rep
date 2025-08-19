@@ -2,7 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from 'react-query';
 import { FaBitcoin, FaArrowUp, FaStar, FaChartLine, FaClock } from 'react-icons/fa';
-import axios from 'axios';
+import axios from '../setupAxios';
 import PollCard from '../components/polls/PollCard';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 

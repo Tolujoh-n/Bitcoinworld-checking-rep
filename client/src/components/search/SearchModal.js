@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useQuery } from 'react-query';
 import { Link } from 'react-router-dom';
 import { FaTimes, FaSearch, FaClock, FaChartLine } from 'react-icons/fa';
-import axios from 'axios';
+import axios from '../../setupAxios';
 
 const SearchModal = ({ isOpen, onClose }) => {
   const [searchTerm, setSearchTerm] = useState('');

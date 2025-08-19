@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { FaBookmark, FaBookmark as FaBookmarkSolid, FaChartLine, FaClock, FaUser } from 'react-icons/fa';
 import { useAuth } from '../../contexts/AuthContext';
-import axios from 'axios';
+import axios from '../../setupAxios';
 import toast from 'react-hot-toast';
 
 const PollCard = ({ poll, compact = false }) => {

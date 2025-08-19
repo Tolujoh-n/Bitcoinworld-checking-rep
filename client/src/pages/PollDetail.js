@@ -1,9 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
-import axios from 'axios';
+import axios from '../setupAxios';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import { FaChartLine, FaClock } from 'react-icons/fa';
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, Legend, CartesianGrid } from 'recharts';
+import CommentsSection from '../components/comments/CommentsSection';
 import { io } from 'socket.io-client';
 import toast from 'react-hot-toast';
 
@@ -155,8 +157,56 @@ const PollDetail = () => {
 
       {/* Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left: Options & Details */}
+        {/* Left: Chart, Image, Options & Details */}
         <div className="lg:col-span-2 space-y-6">
+          {/* Advanced chart */}
+          {poll && poll.options && poll.options.length > 0 && (
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-soft p-4">
+              <div className="text-sm text-gray-700 dark:text-gray-300 mb-2">Market Progress</div>
+              <div className="w-full h-72">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={(() => {
+                    // Build chart data from trade history
+                    const all = (liveTrades.length ? liveTrades : data?.tradeHistory) || [];
+                    const grouped = {};
+                    all.slice().reverse().forEach((t) => {
+                      const minute = new Date(t.createdAt);
+                      minute.setSeconds(0, 0);
+                      const key = minute.toISOString();
+                      if (!grouped[key]) grouped[key] = [];
+                      grouped[key].push(t);
+                    });
+                    const optionVolumes = Array.from({ length: poll.options.length }, () => 1);
+                    const points = [];
+                    const keys = Object.keys(grouped).sort();
+                    keys.forEach((k) => {
+                      const tradesAt = grouped[k];
+                      tradesAt.forEach((t) => {
+                        optionVolumes[t.optionIndex] += t.amount;
+                      });
+                      const total = optionVolumes.reduce((s, v) => s + v, 0);
+                      const point = { time: new Date(k).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) };
+                      poll.options.forEach((opt, idx) => {
+                        point[`o${idx}`] = Math.round((optionVolumes[idx] / total) * 100);
+                      });
+                      points.push(point);
+                    });
+                    return points;
+                  })()} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#37415120" />
+                    <XAxis dataKey="time" tick={{ fill: '#9CA3AF' }} />
+                    <YAxis domain={[0, 100]} tick={{ fill: '#9CA3AF' }} />
+                    <Tooltip />
+                    <Legend />
+                    {poll.options.map((opt, idx) => (
+                      <Line key={idx} type="monotone" dataKey={`o${idx}`} name={opt.text} stroke={['#3B82F6','#F59E0B','#10B981','#EF4444','#8B5CF6','#EC4899'][idx % 6]} dot={false} strokeWidth={2} />
+                    ))}
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          )}
+
           {poll.image && (
             <img src={poll.image} alt={poll.title} className="w-full h-64 object-cover rounded-lg" />
           )}
@@ -214,6 +264,9 @@ const PollDetail = () => {
               </div>
             )}
           </div>
+
+          {/* Comments */}
+          <CommentsSection pollId={poll._id} />
         </div>
 
         {/* Right: Trading panel */}

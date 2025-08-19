@@ -71,36 +71,7 @@ const Footer = () => {
           </div>
         </div>
 
-        {/* Mobile Layout */}
-        <div className="md:hidden mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-          <div className="flex flex-col space-y-4">
-            <div className="flex justify-center space-x-6">
-              {footerLinks.map((link) => (
-                <Link
-                  key={link.name}
-                  to={link.href}
-                  className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 transition-colors text-sm"
-                >
-                  {link.name}
-                </Link>
-              ))}
-            </div>
-            <div className="flex justify-center space-x-4">
-              {socialLinks.map((social) => (
-                <a
-                  key={social.name}
-                  href={social.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
-                  aria-label={social.name}
-                >
-                  <social.icon className="w-5 h-5" />
-                </a>
-              ))}
-            </div>
-          </div>
-        </div>
+        {/* Note: Removed duplicate mobile section to avoid double footer on small screens */}
       </div>
     </footer>
   );

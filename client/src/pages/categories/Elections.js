@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery } from 'react-query';
-import axios from 'axios';
+import axios from '../../setupAxios';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 
 const Elections = () => {

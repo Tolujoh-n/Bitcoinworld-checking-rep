@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useQuery } from 'react-query';
-import axios from 'axios';
+import axios from '../../setupAxios';
 
 const SPORTS = ['Football', 'Basketball', 'Baseball', 'Soccer', 'Tennis', 'Golf', 'Boxing', 'MMA', 'Olympics'];
 
