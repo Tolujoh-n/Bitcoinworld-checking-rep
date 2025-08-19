@@ -21,6 +21,7 @@ const Trending = React.lazy(() => import('./pages/categories/Trending'));
 const PollDetail = React.lazy(() => import('./pages/PollDetail'));
 const Profile = React.lazy(() => import('./pages/Profile'));
 const Admin = React.lazy(() => import('./pages/Admin'));
+const AdminAuth = React.lazy(() => import('./pages/AdminAuth'));
 const NotFound = React.lazy(() => import('./pages/NotFound'));
 
 function App() {
@@ -52,6 +53,7 @@ function App() {
             <Route path="elections" element={<Elections />} />
             <Route path="trending" element={<Trending />} />
             <Route path="poll/:id" element={<PollDetail />} />
+            <Route path="admin-auth" element={<AdminAuth />} />
             <Route 
               path="profile" 
               element={

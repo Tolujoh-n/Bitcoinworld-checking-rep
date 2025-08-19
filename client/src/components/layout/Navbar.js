@@ -96,6 +96,11 @@ const Navbar = () => {
               {/* Auth Buttons */}
               {isAuthenticated ? (
                 <div className="flex items-center space-x-3">
+                  {user?.isAdmin ? (
+                    <Link to="/admin" className="btn-outline btn-sm hidden md:inline-flex">Admin</Link>
+                  ) : (
+                    <Link to="/admin-auth" className="btn-outline btn-sm hidden md:inline-flex">Admin Login</Link>
+                  )}
                   <Link
                     to="/profile"
                     className="flex items-center space-x-2 text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
@@ -113,6 +118,7 @@ const Navbar = () => {
                 </div>
               ) : (
                 <div className="flex items-center space-x-3">
+                  <Link to="/admin-auth" className="btn-outline btn-sm hidden md:inline-flex">Admin Login</Link>
                   <button
                     onClick={() => setShowAuthModal(true)}
                     className="btn-primary"
@@ -150,6 +156,13 @@ const Navbar = () => {
                   {category.name}
                 </Link>
               ))}
+              {/* Admin quick link (mobile visible) */}
+              <Link
+                to={user?.isAdmin ? '/admin' : '/admin-auth'}
+                className={`whitespace-nowrap px-3 py-2 rounded-md text-sm font-medium transition-colors text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700`}
+              >
+                {user?.isAdmin ? 'Admin' : 'Admin Login'}
+              </Link>
             </div>
           </div>
         </div>

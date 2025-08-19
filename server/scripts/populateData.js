@@ -99,6 +99,14 @@ const sampleData = {
       rules:
         "This market resolves to YES if Iran officially announces or demonstrates nuclear weapons capability by December 31, 2025.",
     },
+    {
+      title: "Will Turkey hold early elections this year?",
+      description: "Will early general elections be called in Turkey this year?",
+      subCategory: "Turkey",
+      options: [{ text: "Yes", percentage: 30 }, { text: "No", percentage: 70 }],
+      image: "https://images.unsplash.com/photo-1549888834-3ec93abae044?w=400",
+      rules: "Resolves YES if official notice for early elections is issued per law.",
+    },
   ],
   Crypto: [
     {
@@ -116,18 +124,26 @@ const sampleData = {
         "This market resolves to YES if Bitcoin reaches $100,000 or higher on Coinbase, Binance, or Kraken in 2024.",
     },
     {
-      title: "Will Ethereum complete the merge to Proof of Stake?",
+      title: "Will Ethereum gas fees average under 20 gwei this year?",
       description:
-        "Will Ethereum successfully transition from Proof of Work to Proof of Stake consensus?",
+        "Will the average Ethereum gas fee be under 20 gwei for a full calendar month this year?",
       subCategory: "Ethereum",
       options: [
-        { text: "Yes", percentage: 85 },
-        { text: "No", percentage: 15 },
+        { text: "Yes", percentage: 55 },
+        { text: "No", percentage: 45 },
       ],
       image:
         "https://images.unsplash.com/photo-1621761191319-c6fb62004040?w=400",
       rules:
-        "This market resolves to YES if Ethereum successfully completes the merge to Proof of Stake consensus mechanism.",
+        "This market resolves to YES if the monthly average Ethereum gas price is < 20 gwei for any month this year.",
+    },
+    {
+      title: "Will Solana reach a new ATH this year?",
+      description: "Will SOL set a new all-time high price this year?",
+      subCategory: "Solana",
+      options: [{ text: "Yes", percentage: 48 }, { text: "No", percentage: 52 }],
+      image: "https://images.unsplash.com/photo-1621761191319-c6fb62004040?w=400",
+      rules: "Resolves YES if the daily high on any reputable exchange exceeds prior ATH.",
     },
   ],
   Tech: [
@@ -158,6 +174,14 @@ const sampleData = {
         "https://images.unsplash.com/photo-1446776877081-d282a0f896e2?w=400",
       rules:
         "This market resolves to YES if SpaceX successfully lands a spacecraft on Mars in 2024.",
+    },
+    {
+      title: "Will Apple release a foldable iPhone this year?",
+      description: "Official consumer release of a foldable iPhone in any market this year.",
+      subCategory: "Big Tech",
+      options: [{ text: "Yes", percentage: 15 }, { text: "No", percentage: 85 }],
+      image: "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=400",
+      rules: "Resolves YES on official retail availability announced by Apple.",
     },
   ],
   Culture: [
@@ -216,6 +240,14 @@ const sampleData = {
       rules:
         "This market resolves to YES if China launches a military invasion of Taiwan in 2024.",
     },
+    {
+      title: "Will India surpass China in GDP growth this year?",
+      description: "Real GDP growth rate of India higher than China for the full year.",
+      subCategory: "India",
+      options: [{ text: "Yes", percentage: 62 }, { text: "No", percentage: 38 }],
+      image: "https://images.unsplash.com/photo-1582571352032-448f7928eca1?w=400",
+      rules: "Resolves on official annual data from World Bank/IMF.",
+    },
   ],
   Economy: [
     {
@@ -243,6 +275,14 @@ const sampleData = {
       rules:
         "This market resolves to YES if the annual inflation rate exceeds 3% in 2024.",
     },
+    {
+      title: "Will US unemployment fall below 3% this year?",
+      description: "Any monthly BLS unemployment reading below 3.0% this year.",
+      subCategory: "Macro Indicators",
+      options: [{ text: "Yes", percentage: 10 }, { text: "No", percentage: 90 }],
+      image: "https://images.unsplash.com/photo-1521540216272-a50305cd4421?w=400",
+      rules: "Resolves YES if any BLS monthly unemployment rate < 3.0%.",
+    },
   ],
   Sports: [
     {
@@ -261,17 +301,17 @@ const sampleData = {
         "This market resolves to the team that wins Super Bowl LVIII in 2024.",
     },
     {
-      title: "Will the Lakers win the 2024 NBA Championship?",
-      description: "Will the Los Angeles Lakers win the 2024 NBA Championship?",
+      title: "Will Real Madrid win El Clásico next match?",
+      description: "Outcome of next El Clásico between Real Madrid and Barcelona.",
       subCategory: "Basketball",
       options: [
-        { text: "Yes", percentage: 20 },
-        { text: "No", percentage: 80 },
+        { text: "Real Madrid", percentage: 45 },
+        { text: "Barcelona", percentage: 40 },
+        { text: "Draw", percentage: 15 },
       ],
       image:
         "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400",
-      rules:
-        "This market resolves to YES if the Los Angeles Lakers win the 2024 NBA Championship.",
+      rules: "Resolves to the team that wins after regulation; Draw if official draw result.",
     },
   ],
   Elections: [

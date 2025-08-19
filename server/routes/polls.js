@@ -20,7 +20,9 @@ router.get('/', optionalAuth, async (req, res) => {
       page = 1,
       limit = 20,
       trending,
-      featured
+      featured,
+      timeframe, // 'hour' | 'day' | 'month'
+      cryptoName
     } = req.query;
 
     const query = { isActive: true };
@@ -53,6 +55,27 @@ router.get('/', optionalAuth, async (req, res) => {
     // Featured filter
     if (featured === 'true') {
       query.featured = true;
+    }
+
+    // Crypto name filter
+    if (cryptoName) {
+      query.cryptoName = cryptoName;
+    }
+
+    // Timeframe filter (by createdAt)
+    if (timeframe) {
+      const now = new Date();
+      let from;
+      if (timeframe === 'hour' || timeframe === 'hourly') {
+        from = new Date(now.getTime() - 60 * 60 * 1000);
+      } else if (timeframe === 'day' || timeframe === 'daily') {
+        from = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+      } else if (timeframe === 'month' || timeframe === 'monthly') {
+        from = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      }
+      if (from) {
+        query.createdAt = { $gte: from };
+      }
     }
 
     // Sort options

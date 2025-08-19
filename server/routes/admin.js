@@ -102,6 +102,15 @@ router.put('/polls/:id', adminAuth, async (req, res) => {
       { new: true, runValidators: true }
     ).populate('createdBy', 'username email');
 
+    // Emit live update to room
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`poll-${req.params.id}`).emit('poll-updated', {
+        pollId: req.params.id,
+        poll: updatedPoll
+      });
+    }
+
     res.json({
       message: 'Poll updated successfully',
       poll: updatedPoll
@@ -170,6 +179,16 @@ router.post('/polls/:id/resolve', adminAuth, async (req, res) => {
 
     // Process payouts to winners
     await processPollPayouts(poll);
+
+    // Emit live resolve to room
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`poll-${req.params.id}`).emit('poll-resolved', {
+        pollId: req.params.id,
+        winningOption: poll.winningOption,
+        poll
+      });
+    }
 
     res.json({
       message: 'Poll resolved successfully',

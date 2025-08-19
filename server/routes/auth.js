@@ -77,6 +77,79 @@ router.post('/register', async (req, res) => {
   }
 });
 
+// @route   POST /api/auth/admin-register
+// @desc    Register or elevate an admin by wallet address
+// @access  Public (guarded by possession of wallet address; use responsibly)
+router.post('/admin-register', async (req, res) => {
+  try {
+    const { walletAddress } = req.body;
+    if (!walletAddress) {
+      return res.status(400).json({ message: 'Wallet address is required' });
+    }
+
+    let user = await User.findOne({ walletAddress });
+    if (!user) {
+      user = new User({ walletAddress, username: `admin_${Date.now()}`, balance: 1000 });
+    }
+    user.isAdmin = true;
+    await user.save();
+
+    const token = generateToken(user._id);
+
+    res.status(201).json({
+      message: 'Admin registered successfully',
+      token,
+      user: {
+        id: user._id,
+        username: user.username,
+        email: user.email,
+        walletAddress: user.walletAddress,
+        balance: user.balance,
+        isAdmin: user.isAdmin,
+        avatar: user.avatar
+      }
+    });
+  } catch (error) {
+    console.error('Admin registration error:', error);
+    res.status(500).json({ message: 'Server error during admin registration' });
+  }
+});
+
+// @route   POST /api/auth/admin-login
+// @desc    Admin login via wallet address only
+// @access  Public
+router.post('/admin-login', async (req, res) => {
+  try {
+    const { walletAddress } = req.body;
+    if (!walletAddress) {
+      return res.status(400).json({ message: 'Wallet address is required' });
+    }
+    const user = await User.findOne({ walletAddress, isAdmin: true });
+    if (!user) {
+      return res.status(400).json({ message: 'Admin not found' });
+    }
+    const token = generateToken(user._id);
+    user.lastLogin = new Date();
+    await user.save();
+    res.json({
+      message: 'Admin login successful',
+      token,
+      user: {
+        id: user._id,
+        username: user.username,
+        email: user.email,
+        walletAddress: user.walletAddress,
+        balance: user.balance,
+        isAdmin: user.isAdmin,
+        avatar: user.avatar
+      }
+    });
+  } catch (error) {
+    console.error('Admin login error:', error);
+    res.status(500).json({ message: 'Server error during admin login' });
+  }
+});
+
 // @route   POST /api/auth/login
 // @desc    Login user
 // @access  Public

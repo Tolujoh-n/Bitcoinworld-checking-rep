@@ -118,6 +118,22 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Allow external flows (e.g., admin auth) to set token directly
+  const authenticateWithToken = async (newToken) => {
+    try {
+      setToken(newToken);
+      localStorage.setItem('bitcoinworld-token', newToken);
+      axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
+      const me = await axios.get('/api/auth/me');
+      setUser(me.data);
+      return { success: true };
+    } catch (err) {
+      console.error('authenticateWithToken failed:', err);
+      logout();
+      return { success: false };
+    }
+  };
+
   const value = {
     user,
     loading,
@@ -128,6 +144,7 @@ export const AuthProvider = ({ children }) => {
     logout,
     updateProfile,
     refreshToken,
+    authenticateWithToken,
     token
   };
 
