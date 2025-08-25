@@ -1,16 +1,17 @@
-import React, { useState } from 'react';
-import { useAuth } from '../../contexts/AuthContext';
-import { FaTimes, FaEye, FaEyeSlash, FaBitcoin } from 'react-icons/fa';
+import React, { useState } from "react";
+import { useAuth } from "../../contexts/AuthContext";
+import { FaTimes, FaEye, FaEyeSlash, FaBitcoin } from "react-icons/fa";
+import logo from "../../assets/imgs/bw-logo.png";
 
 const AuthModal = ({ isOpen, onClose }) => {
   const { login, register } = useAuth();
   const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
-    email: '',
-    walletAddress: '',
-    password: '',
-    username: ''
+    email: "",
+    walletAddress: "",
+    password: "",
+    username: "",
   });
   const [loading, setLoading] = useState(false);
 
@@ -23,7 +24,7 @@ const AuthModal = ({ isOpen, onClose }) => {
         const result = await login({
           email: formData.email || undefined,
           walletAddress: formData.walletAddress || undefined,
-          password: formData.password
+          password: formData.password,
         });
         if (result.success) {
           onClose();
@@ -34,7 +35,7 @@ const AuthModal = ({ isOpen, onClose }) => {
           email: formData.email || undefined,
           walletAddress: formData.walletAddress || undefined,
           password: formData.password,
-          username: formData.username
+          username: formData.username,
         });
         if (result.success) {
           onClose();
@@ -42,7 +43,7 @@ const AuthModal = ({ isOpen, onClose }) => {
         }
       }
     } catch (error) {
-      console.error('Auth error:', error);
+      console.error("Auth error:", error);
     } finally {
       setLoading(false);
     }
@@ -50,18 +51,18 @@ const AuthModal = ({ isOpen, onClose }) => {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      [name]: value
+      [name]: value,
     }));
   };
 
   const resetForm = () => {
     setFormData({
-      email: '',
-      walletAddress: '',
-      password: '',
-      username: ''
+      email: "",
+      walletAddress: "",
+      password: "",
+      username: "",
     });
     setShowPassword(false);
   };
@@ -80,11 +81,12 @@ const AuthModal = ({ isOpen, onClose }) => {
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center space-x-3">
-              <FaBitcoin className="w-6 h-6 text-bitcoin-500" />
+              <img src={logo} alt="BitcoinWorld Logo" className="w-6 h-6" />
               <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
-                {isLogin ? 'Welcome Back' : 'Join BitcoinWorld'}
+                {isLogin ? "Welcome Back" : "Join BitcoinWorld"}
               </h2>
             </div>
+
             <button
               onClick={onClose}
               className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
@@ -98,7 +100,7 @@ const AuthModal = ({ isOpen, onClose }) => {
             {/* Email or Wallet Address */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                {isLogin ? 'Email or Wallet Address' : 'Email (Optional)'}
+                {isLogin ? "Email or Wallet Address" : "Email (Optional)"}
               </label>
               <input
                 type="text"
@@ -148,11 +150,11 @@ const AuthModal = ({ isOpen, onClose }) => {
             {/* Password */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Password {!isLogin && '(Optional)'}
+                Password {!isLogin && "(Optional)"}
               </label>
               <div className="relative">
                 <input
-                  type={showPassword ? 'text' : 'password'}
+                  type={showPassword ? "text" : "password"}
                   name="password"
                   value={formData.password}
                   onChange={handleInputChange}
@@ -165,7 +167,11 @@ const AuthModal = ({ isOpen, onClose }) => {
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
                 >
-                  {showPassword ? <FaEyeSlash className="w-4 h-4" /> : <FaEye className="w-4 h-4" />}
+                  {showPassword ? (
+                    <FaEyeSlash className="w-4 h-4" />
+                  ) : (
+                    <FaEye className="w-4 h-4" />
+                  )}
                 </button>
               </div>
             </div>
@@ -179,10 +185,14 @@ const AuthModal = ({ isOpen, onClose }) => {
               {loading ? (
                 <div className="flex items-center space-x-2">
                   <div className="spinner w-4 h-4"></div>
-                  <span>{isLogin ? 'Signing in...' : 'Creating account...'}</span>
+                  <span>
+                    {isLogin ? "Signing in..." : "Creating account..."}
+                  </span>
                 </div>
+              ) : isLogin ? (
+                "Sign In"
               ) : (
-                isLogin ? 'Sign In' : 'Create Account'
+                "Create Account"
               )}
             </button>
           </form>
@@ -195,7 +205,7 @@ const AuthModal = ({ isOpen, onClose }) => {
                 onClick={toggleMode}
                 className="ml-1 text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 font-medium transition-colors"
               >
-                {isLogin ? 'Sign up' : 'Sign in'}
+                {isLogin ? "Sign up" : "Sign in"}
               </button>
             </p>
           </div>
@@ -203,8 +213,8 @@ const AuthModal = ({ isOpen, onClose }) => {
           {/* Info Text */}
           <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-md">
             <p className="text-xs text-gray-600 dark:text-gray-400">
-              You can use either email or wallet address to access BitcoinWorld. 
-              {!isLogin && ' At least one is required.'}
+              You can use either email or wallet address to access BitcoinWorld.
+              {!isLogin && " At least one is required."}
             </p>
           </div>
         </div>

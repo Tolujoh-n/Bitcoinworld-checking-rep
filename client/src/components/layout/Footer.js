@@ -1,31 +1,48 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
-import { 
-  FaTwitter, 
-  FaFacebook, 
-  FaInstagram, 
-  FaLinkedin, 
+import React from "react";
+import { Link } from "react-router-dom";
+import {
+  FaTwitter,
+  FaFacebook,
+  FaInstagram,
+  FaLinkedin,
   FaGithub,
-  FaBitcoin
-} from 'react-icons/fa';
+  FaBitcoin,
+} from "react-icons/fa";
+import logo from "../../assets/imgs/bw-logo.png";
 
 const Footer = () => {
   const currentYear = new Date().getFullYear();
 
   const footerLinks = [
-    { name: 'Privacy', href: '/privacy' },
-    { name: 'Terms of Use', href: '/terms' },
-    { name: 'Learn', href: '/learn' },
-    { name: 'Careers', href: '/careers' },
-    { name: 'Press', href: '/press' }
+    { name: "Privacy", href: "/privacy" },
+    { name: "Terms of Use", href: "/terms" },
+    { name: "Learn", href: "/learn" },
+    { name: "Careers", href: "/careers" },
+    { name: "Press", href: "/press" },
   ];
 
   const socialLinks = [
-    { name: 'Twitter', icon: FaTwitter, href: 'https://twitter.com/bitcoinworld' },
-    { name: 'Facebook', icon: FaFacebook, href: 'https://facebook.com/bitcoinworld' },
-    { name: 'Instagram', icon: FaInstagram, href: 'https://instagram.com/bitcoinworld' },
-    { name: 'LinkedIn', icon: FaLinkedin, href: 'https://linkedin.com/company/bitcoinworld' },
-    { name: 'GitHub', icon: FaGithub, href: 'https://github.com/bitcoinworld' }
+    {
+      name: "Twitter",
+      icon: FaTwitter,
+      href: "https://twitter.com/bitcoinworld",
+    },
+    {
+      name: "Facebook",
+      icon: FaFacebook,
+      href: "https://facebook.com/bitcoinworld",
+    },
+    {
+      name: "Instagram",
+      icon: FaInstagram,
+      href: "https://instagram.com/bitcoinworld",
+    },
+    {
+      name: "LinkedIn",
+      icon: FaLinkedin,
+      href: "https://linkedin.com/company/bitcoinworld",
+    },
+    { name: "GitHub", icon: FaGithub, href: "https://github.com/bitcoinworld" },
   ];
 
   return (
@@ -34,11 +51,13 @@ const Footer = () => {
         <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
           {/* Left Side - Company Info */}
           <div className="flex items-center space-x-2">
-            <FaBitcoin className="w-6 h-6 text-bitcoin-500" />
+            <img src={logo} alt="BitcoinWorld Logo" className="w-6 h-6" />
             <span className="text-lg font-semibold text-gray-900 dark:text-gray-100">
               BitcoinWorld Inc.
             </span>
-            <span className="text-gray-500 dark:text-gray-400">© {currentYear}</span>
+            <span className="text-gray-500 dark:text-gray-400">
+              © {currentYear}
+            </span>
           </div>
 
           {/* Center - Navigation Links */}

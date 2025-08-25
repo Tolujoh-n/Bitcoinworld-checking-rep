@@ -1,73 +1,80 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
-import { useQuery } from 'react-query';
-import { FaBitcoin, FaArrowUp, FaStar, FaChartLine, FaClock } from 'react-icons/fa';
-import axios from '../setupAxios';
-import PollCard from '../components/polls/PollCard';
-import LoadingSpinner from '../components/common/LoadingSpinner';
+import React from "react";
+import { Link } from "react-router-dom";
+import { useQuery } from "react-query";
+import {
+  FaBitcoin,
+  FaArrowUp,
+  FaStar,
+  FaChartLine,
+  FaClock,
+} from "react-icons/fa";
+import axios from "../setupAxios";
+import PollCard from "../components/polls/PollCard";
+import LoadingSpinner from "../components/common/LoadingSpinner";
+import logo from "../assets/imgs/bw-logo.png";
 
 const Home = () => {
   // Fetch trending polls
   const { data: trendingPolls, isLoading: trendingLoading } = useQuery(
-    'trending-polls',
+    "trending-polls",
     async () => {
-      const response = await axios.get('/api/polls/trending?limit=6');
+      const response = await axios.get("/api/polls/trending?limit=6");
       return response.data;
     }
   );
 
   // Fetch featured polls
   const { data: featuredPolls, isLoading: featuredLoading } = useQuery(
-    'featured-polls',
+    "featured-polls",
     async () => {
-      const response = await axios.get('/api/polls?featured=true&limit=8');
+      const response = await axios.get("/api/polls?featured=true&limit=8");
       return response.data;
     }
   );
 
   const categories = [
     {
-      name: 'Politics',
-      path: '/politics',
-      icon: '🏛️',
-      description: 'Political predictions and elections',
-      color: 'bg-red-500'
+      name: "Politics",
+      path: "/politics",
+      icon: "🏛️",
+      description: "Political predictions and elections",
+      color: "bg-red-500",
     },
     {
-      name: 'Crypto',
-      path: '/crypto',
-      icon: '₿',
-      description: 'Cryptocurrency and blockchain',
-      color: 'bg-yellow-500'
+      name: "Crypto",
+      path: "/crypto",
+      icon: "₿",
+      description: "Cryptocurrency and blockchain",
+      color: "bg-yellow-500",
     },
     {
-      name: 'Tech',
-      path: '/tech',
-      icon: '💻',
-      description: 'Technology and innovation',
-      color: 'bg-blue-500'
+      name: "Tech",
+      path: "/tech",
+      icon: "💻",
+      description: "Technology and innovation",
+      color: "bg-blue-500",
     },
     {
-      name: 'Sports',
-      path: '/sports',
-      icon: '⚽',
-      description: 'Sports and competitions',
-      color: 'bg-green-500'
+      name: "Sports",
+      path: "/sports",
+      icon: "⚽",
+      description: "Sports and competitions",
+      color: "bg-green-500",
     },
     {
-      name: 'Economy',
-      path: '/economy',
-      icon: '📈',
-      description: 'Economic indicators and markets',
-      color: 'bg-purple-500'
+      name: "Economy",
+      path: "/economy",
+      icon: "📈",
+      description: "Economic indicators and markets",
+      color: "bg-purple-500",
     },
     {
-      name: 'World',
-      path: '/world',
-      icon: '🌍',
-      description: 'Global events and geopolitics',
-      color: 'bg-indigo-500'
-    }
+      name: "World",
+      path: "/world",
+      icon: "🌍",
+      description: "Global events and geopolitics",
+      color: "bg-indigo-500",
+    },
   ];
 
   return (
@@ -77,13 +84,15 @@ const Home = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
           <div className="text-center">
             <div className="flex justify-center mb-6">
-              <FaBitcoin className="w-16 h-16 text-bitcoin-300" />
+              <img src={logo} alt="BitcoinWorld Logo" className="w-16 h-16" />
             </div>
+
             <h1 className="text-4xl md:text-6xl font-bold mb-6">
               Welcome to <span className="text-bitcoin-300">BitcoinWorld</span>
             </h1>
             <p className="text-xl md:text-2xl mb-8 text-primary-100 max-w-3xl mx-auto">
-              The world's premier prediction marketplace. Trade on the future with confidence.
+              The world's premier prediction marketplace. Trade on the future
+              with confidence.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link
@@ -114,7 +123,7 @@ const Home = () => {
               Find predictions in your areas of interest
             </p>
           </div>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {categories.map((category) => (
               <Link
@@ -122,7 +131,9 @@ const Home = () => {
                 to={category.path}
                 className="card-hover p-6 text-center group"
               >
-                <div className={`w-16 h-16 ${category.color} rounded-full flex items-center justify-center mx-auto mb-4 text-2xl text-white group-hover:scale-110 transition-transform`}>
+                <div
+                  className={`w-16 h-16 ${category.color} rounded-full flex items-center justify-center mx-auto mb-4 text-2xl text-white group-hover:scale-110 transition-transform`}
+                >
                   {category.icon}
                 </div>
                 <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
@@ -206,7 +217,7 @@ const Home = () => {
               Join thousands of traders making predictions
             </p>
           </div>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             <div className="text-center">
               <div className="text-4xl font-bold mb-2">10K+</div>
@@ -235,19 +246,14 @@ const Home = () => {
             Ready to Start Trading?
           </h2>
           <p className="text-lg text-gray-600 dark:text-gray-400 mb-8">
-            Join BitcoinWorld today and start making predictions on the world's most important events.
+            Join BitcoinWorld today and start making predictions on the world's
+            most important events.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link
-              to="/trending"
-              className="btn-primary btn-lg"
-            >
+            <Link to="/trending" className="btn-primary btn-lg">
               Browse Markets
             </Link>
-            <Link
-              to="/learn"
-              className="btn-outline btn-lg"
-            >
+            <Link to="/learn" className="btn-outline btn-lg">
               Learn How It Works
             </Link>
           </div>

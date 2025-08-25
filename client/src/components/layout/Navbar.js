@@ -1,47 +1,48 @@
-import React, { useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { useAuth } from '../../contexts/AuthContext';
-import { useTheme } from '../../contexts/ThemeContext';
-import { 
-  FaSearch, 
-  FaSun, 
-  FaMoon, 
-  FaUser, 
+import React, { useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useAuth } from "../../contexts/AuthContext";
+import { useTheme } from "../../contexts/ThemeContext";
+import {
+  FaSearch,
+  FaSun,
+  FaMoon,
+  FaUser,
   FaSignOutAlt,
   FaBars,
   FaTimes,
-  FaBitcoin
-} from 'react-icons/fa';
-import AuthModal from '../auth/AuthModal';
-import SearchModal from '../search/SearchModal';
+  FaBitcoin,
+} from "react-icons/fa";
+import AuthModal from "../auth/AuthModal";
+import SearchModal from "../search/SearchModal";
+import logo from "../../assets/imgs/bw-logo.png";
 
 const Navbar = () => {
   const { user, isAuthenticated, logout } = useAuth();
   const { isDark, toggleTheme } = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
-  
+
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showSearchModal, setShowSearchModal] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
 
   const categories = [
-    { name: 'Politics', path: '/politics' },
-    { name: 'Trending', path: '/trending' },
-    { name: 'Middle East', path: '/middle-east' },
-    { name: 'Sports', path: '/sports' },
-    { name: 'Crypto', path: '/crypto' },
-    { name: 'Tech', path: '/tech' },
-    { name: 'Culture', path: '/culture' },
-    { name: 'World', path: '/world' },
-    { name: 'Economy', path: '/economy' },
-    { name: 'Elections', path: '/elections' },
-    { name: 'Mentions', path: '/mentions' }
+    { name: "Trending", path: "/trending" },
+    { name: "Politics", path: "/politics" },
+    { name: "Middle East", path: "/middle-east" },
+    { name: "Sports", path: "/sports" },
+    { name: "Crypto", path: "/crypto" },
+    { name: "Tech", path: "/tech" },
+    { name: "Culture", path: "/culture" },
+    { name: "World", path: "/world" },
+    { name: "Economy", path: "/economy" },
+    { name: "Elections", path: "/elections" },
+    { name: "Mentions", path: "/mentions" },
   ];
 
   const handleLogout = () => {
     logout();
-    navigate('/');
+    navigate("/");
   };
 
   const isActiveCategory = (path) => {
@@ -57,8 +58,10 @@ const Navbar = () => {
           <div className="flex justify-between items-center h-16">
             {/* Logo and Title */}
             <Link to="/" className="flex items-center space-x-3">
-              <FaBitcoin className="w-8 h-8 text-bitcoin-500" />
-              <span className="text-xl font-bold gradient-text">BitcoinWorld</span>
+              <img src={logo} alt="BitcoinWorld Logo" className="w-8 h-8" />
+              <span className="text-xl font-bold gradient-text">
+                BitcoinWorld
+              </span>
             </Link>
 
             {/* Search Bar */}
@@ -90,16 +93,30 @@ const Navbar = () => {
                 onClick={toggleTheme}
                 className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
               >
-                {isDark ? <FaSun className="w-5 h-5" /> : <FaMoon className="w-5 h-5" />}
+                {isDark ? (
+                  <FaSun className="w-5 h-5" />
+                ) : (
+                  <FaMoon className="w-5 h-5" />
+                )}
               </button>
 
               {/* Auth Buttons */}
               {isAuthenticated ? (
                 <div className="flex items-center space-x-3">
                   {user?.isAdmin ? (
-                    <Link to="/admin" className="btn-outline btn-sm hidden md:inline-flex">Admin</Link>
+                    <Link
+                      to="/admin"
+                      className="btn-outline btn-sm hidden md:inline-flex"
+                    >
+                      Admin
+                    </Link>
                   ) : (
-                    <Link to="/admin-auth" className="btn-outline btn-sm hidden md:inline-flex">Admin Login</Link>
+                    <Link
+                      to="/admin-auth"
+                      className="btn-outline btn-sm hidden md:inline-flex"
+                    >
+                      Admin Login
+                    </Link>
                   )}
                   <Link
                     to="/profile"
@@ -118,12 +135,17 @@ const Navbar = () => {
                 </div>
               ) : (
                 <div className="flex items-center space-x-3">
-                  <Link to="/admin-auth" className="btn-outline btn-sm hidden md:inline-flex">Admin Login</Link>
+                  <Link
+                    to="/admin-auth"
+                    className="btn-outline btn-sm hidden md:inline-flex"
+                  >
+                    Admin Login
+                  </Link>
                   <button
                     onClick={() => setShowAuthModal(true)}
                     className="btn-primary"
                   >
-                    Login / Signup
+                    Connect Wallet
                   </button>
                 </div>
               )}
@@ -133,7 +155,11 @@ const Navbar = () => {
                 onClick={() => setShowMobileMenu(!showMobileMenu)}
                 className="md:hidden p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
               >
-                {showMobileMenu ? <FaTimes className="w-5 h-5" /> : <FaBars className="w-5 h-5" />}
+                {showMobileMenu ? (
+                  <FaTimes className="w-5 h-5" />
+                ) : (
+                  <FaBars className="w-5 h-5" />
+                )}
               </button>
             </div>
           </div>
@@ -149,8 +175,8 @@ const Navbar = () => {
                   to={category.path}
                   className={`whitespace-nowrap px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                     isActiveCategory(category.path)
-                      ? 'bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300'
-                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700'
+                      ? "bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300"
+                      : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
                   }`}
                 >
                   {category.name}
@@ -158,10 +184,10 @@ const Navbar = () => {
               ))}
               {/* Admin quick link (mobile visible) */}
               <Link
-                to={user?.isAdmin ? '/admin' : '/admin-auth'}
+                to={user?.isAdmin ? "/admin" : "/admin-auth"}
                 className={`whitespace-nowrap px-3 py-2 rounded-md text-sm font-medium transition-colors text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700`}
               >
-                {user?.isAdmin ? 'Admin' : 'Admin Login'}
+                {user?.isAdmin ? "Admin" : "Admin Login"}
               </Link>
             </div>
           </div>
@@ -177,8 +203,8 @@ const Navbar = () => {
                   to={category.path}
                   className={`block px-3 py-2 rounded-md text-base font-medium transition-colors ${
                     isActiveCategory(category.path)
-                      ? 'bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300'
-                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700'
+                      ? "bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300"
+                      : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
                   }`}
                   onClick={() => setShowMobileMenu(false)}
                 >
@@ -191,13 +217,13 @@ const Navbar = () => {
       </nav>
 
       {/* Modals */}
-      <AuthModal 
-        isOpen={showAuthModal} 
-        onClose={() => setShowAuthModal(false)} 
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
       />
-      <SearchModal 
-        isOpen={showSearchModal} 
-        onClose={() => setShowSearchModal(false)} 
+      <SearchModal
+        isOpen={showSearchModal}
+        onClose={() => setShowSearchModal(false)}
       />
     </>
   );

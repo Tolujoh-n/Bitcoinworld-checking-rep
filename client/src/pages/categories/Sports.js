@@ -40,7 +40,7 @@ const Sports = () => {
                 key={s}
                 onClick={() => { setSelectedSport(s); setCurrentPage(1); }}
                 className={`min-w-[220px] rounded-lg p-4 border text-left relative ${
-                  selectedSport === s ? 'border-primary-400 bg-primary-50 dark:bg-primary-950/40' : 'border-gray-200 dark:border-gray-700'
+                  selectedSport === s ? 'border-primary-400 bg-yellow-600 dark:bg-primary-950/40' : 'border-gray-200 dark:border-gray-700'
                 }`}
               >
                 {/* Box content */}
