@@ -1,13 +1,13 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import axios from '../setupAxios';
-import toast from 'react-hot-toast';
+import React, { createContext, useContext, useEffect, useState } from "react";
+import axios from "../setupAxios";
+import toast from "react-hot-toast";
 
 const AuthContext = createContext();
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
 };
@@ -15,14 +15,16 @@ export const useAuth = () => {
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [token, setToken] = useState(localStorage.getItem('bitcoinworld-token'));
+  const [token, setToken] = useState(
+    localStorage.getItem("bitcoinworld-token")
+  );
 
   // Configure axios defaults
   useEffect(() => {
     if (token) {
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
     } else {
-      delete axios.defaults.headers.common['Authorization'];
+      delete axios.defaults.headers.common["Authorization"];
     }
   }, [token]);
 
@@ -31,10 +33,10 @@ export const AuthProvider = ({ children }) => {
     const checkAuth = async () => {
       if (token) {
         try {
-          const response = await axios.get('/api/auth/me');
+          const response = await axios.get("/api/auth/me");
           setUser(response.data);
         } catch (error) {
-          console.error('Auth check failed:', error);
+          console.error("Auth check failed:", error);
           logout();
         }
       }
@@ -44,19 +46,39 @@ export const AuthProvider = ({ children }) => {
     checkAuth();
   }, [token]);
 
-  const login = async (credentials) => {
+  const loginWithWallet = async (walletAddress) => {
     try {
-      const response = await axios.post('/api/auth/login', credentials);
+      const response = await axios.post("/api/auth/wallet-login", {
+        walletAddress,
+      });
       const { token: newToken, user: userData } = response.data;
-      
+
       setToken(newToken);
       setUser(userData);
-      localStorage.setItem('bitcoinworld-token', newToken);
-      
-      toast.success('Login successful!');
+      localStorage.setItem("bitcoinworld-token", newToken);
+
+      toast.success("Wallet connected!");
       return { success: true };
     } catch (error) {
-      const message = error.response?.data?.message || 'Login failed';
+      const message = error.response?.data?.message || "Wallet login failed";
+      toast.error(message);
+      return { success: false, error: message };
+    }
+  };
+
+  const login = async (credentials) => {
+    try {
+      const response = await axios.post("/api/auth/login", credentials);
+      const { token: newToken, user: userData } = response.data;
+
+      setToken(newToken);
+      setUser(userData);
+      localStorage.setItem("bitcoinworld-token", newToken);
+
+      toast.success("Login successful!");
+      return { success: true };
+    } catch (error) {
+      const message = error.response?.data?.message || "Login failed";
       toast.error(message);
       return { success: false, error: message };
     }
@@ -64,17 +86,17 @@ export const AuthProvider = ({ children }) => {
 
   const register = async (userData) => {
     try {
-      const response = await axios.post('/api/auth/register', userData);
+      const response = await axios.post("/api/auth/register", userData);
       const { token: newToken, user: userInfo } = response.data;
-      
+
       setToken(newToken);
       setUser(userInfo);
-      localStorage.setItem('bitcoinworld-token', newToken);
-      
-      toast.success('Registration successful!');
+      localStorage.setItem("bitcoinworld-token", newToken);
+
+      toast.success("Registration successful!");
       return { success: true };
     } catch (error) {
-      const message = error.response?.data?.message || 'Registration failed';
+      const message = error.response?.data?.message || "Registration failed";
       toast.error(message);
       return { success: false, error: message };
     }
@@ -83,19 +105,19 @@ export const AuthProvider = ({ children }) => {
   const logout = () => {
     setUser(null);
     setToken(null);
-    localStorage.removeItem('bitcoinworld-token');
-    delete axios.defaults.headers.common['Authorization'];
-    toast.success('Logged out successfully');
+    localStorage.removeItem("bitcoinworld-token");
+    delete axios.defaults.headers.common["Authorization"];
+    toast.success("Logged out successfully");
   };
 
   const updateProfile = async (profileData) => {
     try {
-      const response = await axios.put('/api/auth/profile', profileData);
+      const response = await axios.put("/api/auth/profile", profileData);
       setUser(response.data.user);
-      toast.success('Profile updated successfully');
+      toast.success("Profile updated successfully");
       return { success: true };
     } catch (error) {
-      const message = error.response?.data?.message || 'Profile update failed';
+      const message = error.response?.data?.message || "Profile update failed";
       toast.error(message);
       return { success: false, error: message };
     }
@@ -103,16 +125,16 @@ export const AuthProvider = ({ children }) => {
 
   const refreshToken = async () => {
     try {
-      const response = await axios.post('/api/auth/refresh');
+      const response = await axios.post("/api/auth/refresh");
       const { token: newToken, user: userData } = response.data;
-      
+
       setToken(newToken);
       setUser(userData);
-      localStorage.setItem('bitcoinworld-token', newToken);
-      
+      localStorage.setItem("bitcoinworld-token", newToken);
+
       return { success: true };
     } catch (error) {
-      console.error('Token refresh failed:', error);
+      console.error("Token refresh failed:", error);
       logout();
       return { success: false };
     }
@@ -122,13 +144,13 @@ export const AuthProvider = ({ children }) => {
   const authenticateWithToken = async (newToken) => {
     try {
       setToken(newToken);
-      localStorage.setItem('bitcoinworld-token', newToken);
-      axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
-      const me = await axios.get('/api/auth/me');
+      localStorage.setItem("bitcoinworld-token", newToken);
+      axios.defaults.headers.common["Authorization"] = `Bearer ${newToken}`;
+      const me = await axios.get("/api/auth/me");
       setUser(me.data);
       return { success: true };
     } catch (err) {
-      console.error('authenticateWithToken failed:', err);
+      console.error("authenticateWithToken failed:", err);
       logout();
       return { success: false };
     }
@@ -145,12 +167,9 @@ export const AuthProvider = ({ children }) => {
     updateProfile,
     refreshToken,
     authenticateWithToken,
-    token
+    loginWithWallet,
+    token,
   };
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

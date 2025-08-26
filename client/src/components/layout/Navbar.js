@@ -1,7 +1,5 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { useAuth } from "../../contexts/AuthContext";
-import { useTheme } from "../../contexts/ThemeContext";
 import {
   FaSearch,
   FaSun,
@@ -12,19 +10,46 @@ import {
   FaTimes,
   FaBitcoin,
 } from "react-icons/fa";
-import AuthModal from "../auth/AuthModal";
+import { userSession, authenticate } from "../../utils/stacksConnect";
+import { useTheme } from "../../contexts/ThemeContext";
 import SearchModal from "../search/SearchModal";
 import logo from "../../assets/imgs/bw-logo.png";
+import { useAuth } from "../../contexts/AuthContext";
 
 const Navbar = () => {
-  const { user, isAuthenticated, logout } = useAuth();
   const { isDark, toggleTheme } = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
+  const { user, loginWithWallet } = useAuth();
 
-  const [showAuthModal, setShowAuthModal] = useState(false);
   const [showSearchModal, setShowSearchModal] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const [walletAddress, setWalletAddress] = useState("");
+
+  useEffect(() => {
+    if (userSession.isUserSignedIn()) {
+      const address = userSession.loadUserData().profile.stxAddress.mainnet;
+      setWalletAddress(address);
+
+      // Call backend to get JWT and user info
+      loginWithWallet(address);
+    }
+  }, []);
+
+  const handleConnectWallet = () => {
+    authenticate();
+  };
+
+  const handleDisconnect = () => {
+    userSession.signUserOut("/");
+    setWalletAddress("");
+    navigate("/");
+  };
+
+  const truncateAddress = (address) => {
+    if (!address) return "";
+    return `${address.slice(0, 6)}...${address.slice(-4)}`;
+  };
 
   const categories = [
     { name: "Trending", path: "/trending" },
@@ -40,31 +65,19 @@ const Navbar = () => {
     { name: "Mentions", path: "/mentions" },
   ];
 
-  const handleLogout = () => {
-    logout();
-    navigate("/");
-  };
-
-  const isActiveCategory = (path) => {
-    return location.pathname === path;
-  };
+  const isActiveCategory = (path) => location.pathname === path;
 
   return (
     <>
-      {/* Main Navigation */}
       <nav className="bg-white dark:bg-gray-800 shadow-soft border-b border-gray-200 dark:border-gray-700 sticky top-0 z-40">
-        {/* Top Row */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            {/* Logo and Title */}
             <Link to="/" className="flex items-center space-x-3">
               <img src={logo} alt="BitcoinWorld Logo" className="w-8 h-8" />
               <span className="text-xl font-bold gradient-text">
                 BitcoinWorld
               </span>
             </Link>
-
-            {/* Search Bar */}
             <div className="hidden md:flex flex-1 max-w-lg mx-8">
               <div className="relative w-full">
                 <input
@@ -77,18 +90,13 @@ const Navbar = () => {
                 <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
               </div>
             </div>
-
-            {/* Right Side */}
             <div className="flex items-center space-x-4">
-              {/* Search Button (Mobile) */}
               <button
                 onClick={() => setShowSearchModal(true)}
                 className="md:hidden p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
               >
                 <FaSearch className="w-5 h-5" />
               </button>
-
-              {/* Theme Toggle */}
               <button
                 onClick={toggleTheme}
                 className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
@@ -101,7 +109,7 @@ const Navbar = () => {
               </button>
 
               {/* Auth Buttons */}
-              {isAuthenticated ? (
+              {walletAddress ? (
                 <div className="flex items-center space-x-3">
                   {user?.isAdmin ? (
                     <Link
@@ -123,10 +131,12 @@ const Navbar = () => {
                     className="flex items-center space-x-2 text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
                   >
                     <FaUser className="w-4 h-4" />
-                    <span className="hidden sm:block">{user?.username}</span>
+                    <span className="hidden sm:block">
+                      {truncateAddress(walletAddress)}
+                    </span>
                   </Link>
                   <button
-                    onClick={handleLogout}
+                    onClick={handleDisconnect}
                     className="flex items-center space-x-2 text-gray-700 dark:text-gray-300 hover:text-danger-600 dark:hover:text-danger-400 transition-colors"
                   >
                     <FaSignOutAlt className="w-4 h-4" />
@@ -141,16 +151,12 @@ const Navbar = () => {
                   >
                     Admin Login
                   </Link>
-                  <button
-                    onClick={() => setShowAuthModal(true)}
-                    className="btn-primary"
-                  >
+                  <button onClick={handleConnectWallet} className="btn-primary">
                     Connect Wallet
                   </button>
                 </div>
               )}
 
-              {/* Mobile Menu Button */}
               <button
                 onClick={() => setShowMobileMenu(!showMobileMenu)}
                 className="md:hidden p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
@@ -192,8 +198,6 @@ const Navbar = () => {
             </div>
           </div>
         </div>
-
-        {/* Mobile Menu */}
         {showMobileMenu && (
           <div className="md:hidden border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
             <div className="px-2 pt-2 pb-3 space-y-1">
@@ -215,12 +219,6 @@ const Navbar = () => {
           </div>
         )}
       </nav>
-
-      {/* Modals */}
-      <AuthModal
-        isOpen={showAuthModal}
-        onClose={() => setShowAuthModal(false)}
-      />
       <SearchModal
         isOpen={showSearchModal}
         onClose={() => setShowSearchModal(false)}
