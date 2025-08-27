@@ -196,9 +196,10 @@ const PollDetail = () => {
               </div>
               <div className="w-full h-72">
                 <ResponsiveContainer width="100%" height="100%">
+                  {/* ...existing chart code... */}
                   <LineChart
                     data={(() => {
-                      // Build chart data from trade history
+                      // ...existing code...
                       const all =
                         (liveTrades.length ? liveTrades : data?.tradeHistory) ||
                         [];
@@ -308,6 +309,151 @@ const PollDetail = () => {
             </div>
           </div>
 
+          {/* Trade panel: show after options for small screens */}
+          <div className="block lg:hidden">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-soft p-6 mt-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                  Trade
+                </h3>
+                <div className="inline-flex rounded-md overflow-hidden border border-gray-200 dark:border-gray-700">
+                  <button
+                    onClick={() => setSide("buy")}
+                    className={`px-3 py-1 text-sm ${
+                      side === "buy"
+                        ? "bg-emerald-600 text-white"
+                        : "bg-transparent text-gray-700 dark:text-gray-300"
+                    }`}
+                  >
+                    Buy
+                  </button>
+                  <button
+                    onClick={() => setSide("sell")}
+                    className={`px-3 py-1 text-sm ${
+                      side === "sell"
+                        ? "bg-red-600 text-white"
+                        : "bg-transparent text-gray-700 dark:text-gray-300"
+                    }`}
+                  >
+                    Sell
+                  </button>
+                </div>
+              </div>
+
+              {/* Option selector */}
+              <label className="block text-xs text-gray-500 dark:text-gray-400 mb-2">
+                Option
+              </label>
+              <div className="space-y-2 mb-4">
+                {poll.options.map((opt, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setSelectedOptionIndex(idx)}
+                    className={`w-full flex items-center justify-between p-3 rounded border text-sm ${
+                      selectedOptionIndex === idx
+                        ? "border-primary-400 bg-yellow-600 dark:bg-primary-950/40 text-gray-900 dark:text-gray-100"
+                        : "border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300"
+                    }`}
+                  >
+                    <span>{opt.text}</span>
+                    <span className="font-semibold">{opt.percentage}%</span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Inputs */}
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1">
+                    Amount
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    placeholder="0.00"
+                    className="input w-full"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1">
+                    Price (0-1)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    value={price}
+                    onChange={(e) => setPrice(e.target.value)}
+                    placeholder="0.50"
+                    className="input w-full"
+                  />
+                </div>
+                <button
+                  onClick={() => tradeMutation.mutate()}
+                  disabled={
+                    !amount || Number(amount) <= 0 || tradeMutation.isLoading
+                  }
+                  className={`w-full ${
+                    side === "buy" ? "btn-primary" : "btn-danger"
+                  } disabled:opacity-50 disabled:cursor-not-allowed`}
+                >
+                  {tradeMutation.isLoading
+                    ? "Placing order..."
+                    : `${side === "buy" ? "Buy" : "Sell"} ${
+                        poll.options[selectedOptionIndex]?.text || ""
+                      }`}
+                </button>
+              </div>
+
+              {/* Order book (if available) */}
+              {(liveOrderBook || data?.orderBook) && (
+                <div className="mt-6">
+                  <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2">
+                    Order Book
+                  </h4>
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <div className="text-emerald-600 mb-1">Buys</div>
+                      <div className="space-y-1">
+                        {(liveOrderBook || data?.orderBook)?.buyOrders?.map(
+                          (o) => (
+                            <div
+                              key={o._id}
+                              className="flex justify-between text-gray-700 dark:text-gray-300"
+                            >
+                              <span>{o.amount}</span>
+                              <span>{o.price}</span>
+                            </div>
+                          )
+                        )}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-red-500 mb-1">Sells</div>
+                      <div className="space-y-1">
+                        {(liveOrderBook || data?.orderBook)?.sellOrders?.map(
+                          (o) => (
+                            <div
+                              key={o._id}
+                              className="flex justify-between text-gray-700 dark:text-gray-300"
+                            >
+                              <span>{o.amount}</span>
+                              <span>{o.price}</span>
+                            </div>
+                          )
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* Trade history */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-soft p-6">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
@@ -368,8 +514,8 @@ const PollDetail = () => {
           <CommentsSection pollId={poll._id} />
         </div>
 
-        {/* Right: Trading panel */}
-        <div className="lg:col-span-1">
+        {/* Right: Trading panel for large screens */}
+        <div className="hidden lg:block lg:col-span-1">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-soft p-6 sticky top-24">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
