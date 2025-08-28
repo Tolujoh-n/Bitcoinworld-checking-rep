@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { useQuery } from 'react-query';
 import axios from '../../setupAxios';
+import { BACKEND_URL } from "../../contexts/Bakendurl";
 
 const SPORTS = ['Football', 'Basketball', 'Baseball', 'Soccer', 'Tennis', 'Golf', 'Boxing', 'MMA', 'Olympics'];
 
@@ -12,7 +13,7 @@ const Sports = () => {
     ['polls', 'Sports', selectedSport, currentPage],
     async () => {
       const params = new URLSearchParams({ category: 'Sports', subCategory: selectedSport, page: currentPage, limit: 10, sort: 'createdAt', order: 'desc' });
-      const res = await axios.get(`/api/polls?${params}`);
+      const res = await axios.get(`${BACKEND_URL}/api/polls?${params}`);
       return res.data;
     },
     { keepPreviousData: true, staleTime: 60 * 1000 }

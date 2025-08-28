@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import axios from "../setupAxios";
 import toast from "react-hot-toast";
+import { BACKEND_URL } from "./Bakendurl";
 
 const AuthContext = createContext();
 
@@ -33,7 +34,7 @@ export const AuthProvider = ({ children }) => {
     const checkAuth = async () => {
       if (token) {
         try {
-          const response = await axios.get("/api/auth/me");
+          const response = await axios.get(`${BACKEND_URL}/api/auth/me`);
           setUser(response.data);
         } catch (error) {
           console.error("Auth check failed:", error);
@@ -48,9 +49,12 @@ export const AuthProvider = ({ children }) => {
 
   const loginWithWallet = async (walletAddress) => {
     try {
-      const response = await axios.post("/api/auth/wallet-login", {
-        walletAddress,
-      });
+      const response = await axios.post(
+        `${BACKEND_URL}/api/auth/wallet-login`,
+        {
+          walletAddress,
+        }
+      );
       const { token: newToken, user: userData } = response.data;
 
       setToken(newToken);
@@ -68,7 +72,10 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (credentials) => {
     try {
-      const response = await axios.post("/api/auth/login", credentials);
+      const response = await axios.post(
+        `${BACKEND_URL}/api/auth/login`,
+        credentials
+      );
       const { token: newToken, user: userData } = response.data;
 
       setToken(newToken);
@@ -86,7 +93,10 @@ export const AuthProvider = ({ children }) => {
 
   const register = async (userData) => {
     try {
-      const response = await axios.post("/api/auth/register", userData);
+      const response = await axios.post(
+        `${BACKEND_URL}/api/auth/register`,
+        userData
+      );
       const { token: newToken, user: userInfo } = response.data;
 
       setToken(newToken);
@@ -112,7 +122,10 @@ export const AuthProvider = ({ children }) => {
 
   const updateProfile = async (profileData) => {
     try {
-      const response = await axios.put("/api/auth/profile", profileData);
+      const response = await axios.put(
+        `${BACKEND_URL}/api/auth/profile`,
+        profileData
+      );
       setUser(response.data.user);
       toast.success("Profile updated successfully");
       return { success: true };
@@ -125,7 +138,7 @@ export const AuthProvider = ({ children }) => {
 
   const refreshToken = async () => {
     try {
-      const response = await axios.post("/api/auth/refresh");
+      const response = await axios.post(`${BACKEND_URL}/api/auth/refresh`);
       const { token: newToken, user: userData } = response.data;
 
       setToken(newToken);
@@ -146,7 +159,7 @@ export const AuthProvider = ({ children }) => {
       setToken(newToken);
       localStorage.setItem("bitcoinworld-token", newToken);
       axios.defaults.headers.common["Authorization"] = `Bearer ${newToken}`;
-      const me = await axios.get("/api/auth/me");
+      const me = await axios.get(`${BACKEND_URL}/api/auth/me`);
       setUser(me.data);
       return { success: true };
     } catch (err) {

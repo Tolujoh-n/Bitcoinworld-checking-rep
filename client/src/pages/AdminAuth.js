@@ -3,6 +3,7 @@ import axios from "../setupAxios";
 import { useAuth } from "../contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { userSession, authenticate } from "../utils/stacksConnect";
+import { BACKEND_URL } from "../contexts/Bakendurl";
 
 const AdminAuth = () => {
   const navigate = useNavigate();
@@ -34,7 +35,7 @@ const AdminAuth = () => {
     setError("");
     try {
       const url =
-        mode === "login" ? "/api/auth/admin-login" : "/api/auth/admin-register";
+        mode === "login" ? `${BACKEND_URL}/api/auth/admin-login` : `${BACKEND_URL}/api/auth/admin-register`;
       const res = await axios.post(url, { walletAddress });
       const { token } = res.data;
       localStorage.setItem("bitcoinworld-token", token);

@@ -3,13 +3,14 @@ import { useQuery } from 'react-query';
 import axios from '../../setupAxios';
 import PollCard from '../../components/polls/PollCard';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
+import { BACKEND_URL } from "../../contexts/Bakendurl";
 
 const Trending = () => {
   const [sort, setSort] = useState('volume');
   const { data, isLoading, error } = useQuery(
     ['trending'],
     async () => {
-      const res = await axios.get('/api/polls/trending?limit=60');
+      const res = await axios.get(`${BACKEND_URL}/api/polls/trending?limit=60`);
       return res.data;
     },
     { staleTime: 60 * 1000 }

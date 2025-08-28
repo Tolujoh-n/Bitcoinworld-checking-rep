@@ -4,6 +4,7 @@ import axios from '../../setupAxios';
 import { FaFilter, FaSearch } from 'react-icons/fa';
 import PollCard from '../../components/polls/PollCard';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
+import { BACKEND_URL } from "../../contexts/Bakendurl";
 
 const Culture = () => {
   const [selectedSubCategory, setSelectedSubCategory] = useState('All');
@@ -18,7 +19,7 @@ const Culture = () => {
       const params = new URLSearchParams({ category: 'Culture', page: currentPage, limit: 12 });
       if (selectedSubCategory !== 'All') params.append('subCategory', selectedSubCategory);
       if (searchTerm) params.append('search', searchTerm);
-      const res = await axios.get(`/api/polls?${params}`);
+      const res = await axios.get(`${BACKEND_URL}/api/polls?${params}`);
       return res.data;
     },
     { keepPreviousData: true, staleTime: 5 * 60 * 1000 }

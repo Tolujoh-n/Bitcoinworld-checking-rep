@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import axios from '../setupAxios';
+import { BACKEND_URL } from "../contexts/Bakendurl";
 
 const Admin = () => {
   const queryClient = useQueryClient();
@@ -30,8 +31,8 @@ const Admin = () => {
     candidates: '' // name|percentage|image per line
   });
 
-  const { data: stats } = useQuery(['admin-dashboard'], async () => (await axios.get('/api/admin/dashboard')).data);
-  const { data: polls, isLoading } = useQuery(['admin-polls', page], async () => (await axios.get(`/api/admin/polls?page=${page}&limit=10`)).data);
+  const { data: stats } = useQuery(['admin-dashboard'], async () => (await axios.get(`${BACKEND_URL}/api/admin/dashboard`)).data);
+  const { data: polls, isLoading } = useQuery(['admin-polls', page], async () => (await axios.get(`${BACKEND_URL}/api/admin/polls?page=${page}&limit=10`)).data);
 
   const createMutation = useMutation(async () => {
     const payload = {
@@ -67,7 +68,7 @@ const Admin = () => {
         .filter(Boolean);
     }
 
-    return (await axios.post('/api/polls', payload)).data;
+    return (await axios.post(`${BACKEND_URL}/api/polls`, payload)).data;
   }, {
     onSuccess: () => {
       setCreating(false);
@@ -79,20 +80,20 @@ const Admin = () => {
     }
   });
 
-  const deleteMutation = useMutation(async (id) => (await axios.delete(`/api/admin/polls/${id}`)).data, {
+  const deleteMutation = useMutation(async (id) => (await axios.delete(`${BACKEND_URL}/api/admin/polls/${id}`)).data, {
     onSuccess: () => queryClient.invalidateQueries(['admin-polls'])
   });
 
   const [editingPoll, setEditingPoll] = useState(null);
   const [resolvingPoll, setResolvingPoll] = useState(null);
   const [resolveIndex, setResolveIndex] = useState('');
-  const updateMutation = useMutation(async ({ id, data }) => (await axios.put(`/api/admin/polls/${id}`, data)).data, {
+  const updateMutation = useMutation(async ({ id, data }) => (await axios.put(`${BACKEND_URL}/api/admin/polls/${id}`, data)).data, {
     onSuccess: () => {
       setEditingPoll(null);
       queryClient.invalidateQueries(['admin-polls']);
     }
   });
-  const resolveMutation = useMutation(async ({ id, winningOption }) => (await axios.post(`/api/admin/polls/${id}/resolve`, { winningOption })).data, {
+  const resolveMutation = useMutation(async ({ id, winningOption }) => (await axios.post(`${BACKEND_URL}/api/admin/polls/${id}/resolve`, { winningOption })).data, {
     onSuccess: () => {
       setResolvingPoll(null);
       queryClient.invalidateQueries(['admin-polls']);

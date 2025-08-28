@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useQuery } from 'react-query';
 import axios from '../../setupAxios';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
+import { BACKEND_URL } from "../../contexts/Bakendurl";
 
 const Elections = () => {
   const [currentPage, setCurrentPage] = useState(1);
@@ -10,7 +11,7 @@ const Elections = () => {
     ['polls', 'Elections', currentPage],
     async () => {
       const params = new URLSearchParams({ category: 'Elections', page: currentPage, limit: 12 });
-      const res = await axios.get(`/api/polls?${params}`);
+      const res = await axios.get(`${BACKEND_URL}/api/polls?${params}`);
       return res.data;
     },
     { keepPreviousData: true, staleTime: 5 * 60 * 1000 }

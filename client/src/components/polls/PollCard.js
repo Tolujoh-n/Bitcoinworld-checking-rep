@@ -4,6 +4,7 @@ import { FaBookmark, FaBookmark as FaBookmarkSolid, FaChartLine, FaClock, FaUser
 import { useAuth } from '../../contexts/AuthContext';
 import axios from '../../setupAxios';
 import toast from 'react-hot-toast';
+import { BACKEND_URL } from "../../contexts/Bakendurl";
 
 const PollCard = ({ poll, compact = false }) => {
   const { isAuthenticated } = useAuth();
@@ -21,7 +22,7 @@ const PollCard = ({ poll, compact = false }) => {
 
     setSaving(true);
     try {
-      const response = await axios.post(`/api/polls/${poll._id}/save`);
+      const response = await axios.post(`${BACKEND_URL}/api/polls/${poll._id}/save`);
       setIsSaved(response.data.saved);
       toast.success(response.data.message);
     } catch (error) {

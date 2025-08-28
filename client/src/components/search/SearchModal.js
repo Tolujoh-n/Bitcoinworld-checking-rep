@@ -1,12 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { useQuery } from 'react-query';
-import { Link } from 'react-router-dom';
-import { FaTimes, FaSearch, FaClock, FaChartLine } from 'react-icons/fa';
-import axios from '../../setupAxios';
+import React, { useState, useEffect } from "react";
+import { useQuery } from "react-query";
+import { Link } from "react-router-dom";
+import { FaTimes, FaSearch, FaClock, FaChartLine } from "react-icons/fa";
+import axios from "../../setupAxios";
+import { BACKEND_URL } from "../../contexts/Bakendurl";
 
 const SearchModal = ({ isOpen, onClose }) => {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
 
   // Debounce search term
   useEffect(() => {
@@ -19,10 +20,12 @@ const SearchModal = ({ isOpen, onClose }) => {
 
   // Search query
   const { data: searchResults, isLoading } = useQuery(
-    ['search', debouncedSearchTerm],
+    ["search", debouncedSearchTerm],
     async () => {
       if (!debouncedSearchTerm.trim()) return { polls: [] };
-      const response = await axios.get(`/api/polls?search=${debouncedSearchTerm}&limit=10`);
+      const response = await axios.get(
+        `${BACKEND_URL}/api/polls?search=${debouncedSearchTerm}&limit=10`
+      );
       return response.data;
     },
     {
@@ -32,7 +35,7 @@ const SearchModal = ({ isOpen, onClose }) => {
   );
 
   const handleClose = () => {
-    setSearchTerm('');
+    setSearchTerm("");
     onClose();
   };
 
@@ -44,7 +47,10 @@ const SearchModal = ({ isOpen, onClose }) => {
 
   return (
     <div className="modal-overlay" onClick={handleClose}>
-      <div className="modal-content max-w-2xl" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="modal-content max-w-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="p-6">
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
@@ -123,7 +129,9 @@ const SearchModal = ({ isOpen, onClose }) => {
                           </span>
                           <span className="flex items-center space-x-1">
                             <FaClock className="w-3 h-3" />
-                            <span>{new Date(poll.endDate).toLocaleDateString()}</span>
+                            <span>
+                              {new Date(poll.endDate).toLocaleDateString()}
+                            </span>
                           </span>
                           {poll.totalVolume > 0 && (
                             <span>${poll.totalVolume.toLocaleString()}</span>
@@ -144,7 +152,14 @@ const SearchModal = ({ isOpen, onClose }) => {
                 Popular Categories
               </h3>
               <div className="grid grid-cols-2 gap-2">
-                {['Politics', 'Crypto', 'Tech', 'Sports', 'Economy', 'World'].map((category) => (
+                {[
+                  "Politics",
+                  "Crypto",
+                  "Tech",
+                  "Sports",
+                  "Economy",
+                  "World",
+                ].map((category) => (
                   <button
                     key={category}
                     onClick={() => setSearchTerm(category)}

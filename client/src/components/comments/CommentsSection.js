@@ -4,6 +4,8 @@ import axios from "../../setupAxios";
 import { useAuth } from "../../contexts/AuthContext";
 import LoadingSpinner from "../common/LoadingSpinner";
 import { io } from "socket.io-client";
+import { BACKEND_URL } from "../../contexts/Bakendurl";
+
 
 const CommentItem = ({ comment, pollId, depth = 0 }) => {
   const queryClient = useQueryClient();
@@ -14,13 +16,13 @@ const CommentItem = ({ comment, pollId, depth = 0 }) => {
   const [editContent, setEditContent] = useState(comment.content);
 
   const likeMutation = useMutation(
-    async () => (await axios.post(`/api/comments/${comment._id}/like`)).data,
+    async () => (await axios.post(`${BACKEND_URL}/api/comments/${comment._id}/like`)).data,
     {
       onSuccess: () => queryClient.invalidateQueries(["comments", pollId]),
     }
   );
   const dislikeMutation = useMutation(
-    async () => (await axios.post(`/api/comments/${comment._id}/dislike`)).data,
+    async () => (await axios.post(`${BACKEND_URL}/api/comments/${comment._id}/dislike`)).data,
     {
       onSuccess: () => queryClient.invalidateQueries(["comments", pollId]),
     }
@@ -28,7 +30,7 @@ const CommentItem = ({ comment, pollId, depth = 0 }) => {
   const replyMutation = useMutation(
     async () =>
       (
-        await axios.post("/api/comments", {
+        await axios.post(`${BACKEND_URL}/api/comments`, {
           pollId,
           content: replyContent,
           parentCommentId: comment._id,
@@ -45,7 +47,7 @@ const CommentItem = ({ comment, pollId, depth = 0 }) => {
   const updateMutation = useMutation(
     async () =>
       (
-        await axios.put(`/api/comments/${comment._id}`, {
+        await axios.put(`${BACKEND_URL}/api/comments/${comment._id}`, {
           content: editContent,
         })
       ).data,
@@ -57,7 +59,7 @@ const CommentItem = ({ comment, pollId, depth = 0 }) => {
     }
   );
   const deleteMutation = useMutation(
-    async () => (await axios.delete(`/api/comments/${comment._id}`)).data,
+    async () => (await axios.delete(`${BACKEND_URL}/api/comments/${comment._id}`)).data,
     {
       onSuccess: () => queryClient.invalidateQueries(["comments", pollId]),
     }
@@ -235,7 +237,7 @@ const CommentsSection = ({ pollId }) => {
     ["comments", pollId, page, limit],
     async () => {
       const res = await axios.get(
-        `/api/comments/poll/${pollId}?page=${page}&limit=${limit}`
+        `${BACKEND_URL}/api/comments/poll/${pollId}?page=${page}&limit=${limit}`
       );
       return res.data; // {comments, total, pages, currentPage}
     },
@@ -243,7 +245,7 @@ const CommentsSection = ({ pollId }) => {
   );
 
   const createMutation = useMutation(
-    async () => (await axios.post("/api/comments", { pollId, content })).data,
+    async () => (await axios.post(`${BACKEND_URL}/api/comments`, { pollId, content })).data,
     {
       onSuccess: () => {
         setContent("");

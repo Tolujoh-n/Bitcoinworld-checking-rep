@@ -4,6 +4,7 @@ import axios from "../../setupAxios";
 import PollCard from "../../components/polls/PollCard";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
 import { FaFilter } from "react-icons/fa";
+import { BACKEND_URL } from "../../contexts/Bakendurl";
 
 const CRYPTOS = [
   {
@@ -61,7 +62,7 @@ const Crypto = () => {
   } = useQuery(
     ["polls", "Crypto", timeframe, selectedCrypto, currentPage],
     async () => {
-      const res = await axios.get(`/api/polls?${params}`);
+      const res = await axios.get(`${BACKEND_URL}/api/polls?${params}`);
       return res.data;
     },
     { keepPreviousData: true, staleTime: 60 * 1000 }

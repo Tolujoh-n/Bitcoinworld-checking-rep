@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "react-query";
 import axios from "../setupAxios";
 import LoadingSpinner from "../components/common/LoadingSpinner";
 import { FaChartLine, FaClock } from "react-icons/fa";
+import { BACKEND_URL } from "../contexts/Bakendurl";
 import {
   ResponsiveContainer,
   LineChart,
@@ -29,7 +30,7 @@ const PollDetail = () => {
   const { data, isLoading, error } = useQuery(
     ["poll-detail", id],
     async () => {
-      const response = await axios.get(`/api/polls/${id}`);
+      const response = await axios.get(`${BACKEND_URL}/api/polls/${id}`);
       return response.data;
     },
     { staleTime: 60 * 1000 }
@@ -45,7 +46,7 @@ const PollDetail = () => {
         price: Number(price),
         orderType: "market",
       };
-      const res = await axios.post("/api/trades", payload);
+      const res = await axios.post(`${BACKEND_URL}/api/trades`, payload);
       return res.data;
     },
     {

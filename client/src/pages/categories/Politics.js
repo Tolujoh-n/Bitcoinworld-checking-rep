@@ -4,6 +4,7 @@ import { FaFilter, FaBookmark, FaSearch } from 'react-icons/fa';
 import axios from '../../setupAxios';
 import PollCard from '../../components/polls/PollCard';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
+import { BACKEND_URL } from "../../contexts/Bakendurl";
 
 const Politics = () => {
   const [selectedSubCategory, setSelectedSubCategory] = useState('All');
@@ -34,7 +35,7 @@ const Politics = () => {
         params.append('search', searchTerm);
       }
 
-      const response = await axios.get(`/api/polls?${params}`);
+      const response = await axios.get(`${BACKEND_URL}/api/polls?${params}`);
       return response.data;
     },
     {

@@ -12,13 +12,14 @@ import axios from "../setupAxios";
 import PollCard from "../components/polls/PollCard";
 import LoadingSpinner from "../components/common/LoadingSpinner";
 import logo from "../assets/imgs/bw-logo.png";
+import { BACKEND_URL } from "../contexts/Bakendurl";
 
 const Home = () => {
   // Fetch trending polls
   const { data: trendingPolls, isLoading: trendingLoading } = useQuery(
     "trending-polls",
     async () => {
-      const response = await axios.get("/api/polls/trending?limit=6");
+      const response = await axios.get(`${BACKEND_URL}/api/polls/trending?limit=6`);
       return response.data;
     }
   );
@@ -27,7 +28,7 @@ const Home = () => {
   const { data: featuredPolls, isLoading: featuredLoading } = useQuery(
     "featured-polls",
     async () => {
-      const response = await axios.get("/api/polls?featured=true&limit=8");
+      const response = await axios.get(`${BACKEND_URL}/api/polls?featured=true&limit=8`);
       return response.data;
     }
   );
