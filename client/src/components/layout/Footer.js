@@ -10,6 +10,7 @@ import {
 } from "react-icons/fa";
 import logo from "../../assets/imgs/bw-logo.png";
 import { FaXTwitter } from "react-icons/fa6";
+import { SiGitbook } from "react-icons/si";
 
 const Footer = () => {
   const currentYear = new Date().getFullYear();
@@ -33,11 +34,11 @@ const Footer = () => {
       icon: FaDiscord,
       href: "https://discord.gg/bitcoinworld",
     },
-    // {
-    //   name: "Instagram",
-    //   icon: FaInstagram,
-    //   href: "https://instagram.com/bitcoinworld",
-    // },
+    {
+      name: "GitBook",
+      icon: SiGitbook,
+      href: "https://t.co/SlYgicNG9F",
+    },
     // {
     //   name: "LinkedIn",
     //   icon: FaLinkedin,
