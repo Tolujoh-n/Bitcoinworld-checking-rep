@@ -2,13 +2,14 @@ import React from "react";
 import { Link } from "react-router-dom";
 import {
   FaTwitter,
-  FaFacebook,
+  FaDiscord,
   FaInstagram,
   FaLinkedin,
   FaGithub,
   FaBitcoin,
 } from "react-icons/fa";
 import logo from "../../assets/imgs/bw-logo.png";
+import { FaXTwitter } from "react-icons/fa6";
 
 const Footer = () => {
   const currentYear = new Date().getFullYear();
@@ -23,26 +24,30 @@ const Footer = () => {
 
   const socialLinks = [
     {
-      name: "Twitter",
-      icon: FaTwitter,
-      href: "https://twitter.com/bitcoinworld",
+      name: "X",
+      icon: FaXTwitter,
+      href: "https://x.com/Bitcoinworldapp",
     },
     {
-      name: "Facebook",
-      icon: FaFacebook,
-      href: "https://facebook.com/bitcoinworld",
+      name: "Discord",
+      icon: FaDiscord,
+      href: "https://discord.gg/bitcoinworld",
     },
+    // {
+    //   name: "Instagram",
+    //   icon: FaInstagram,
+    //   href: "https://instagram.com/bitcoinworld",
+    // },
+    // {
+    //   name: "LinkedIn",
+    //   icon: FaLinkedin,
+    //   href: "https://linkedin.com/company/bitcoinworld",
+    // },
     {
-      name: "Instagram",
-      icon: FaInstagram,
-      href: "https://instagram.com/bitcoinworld",
+      name: "GitHub",
+      icon: FaGithub,
+      href: "https://github.com/bitcoinworldapp/bitcoin-world-app",
     },
-    {
-      name: "LinkedIn",
-      icon: FaLinkedin,
-      href: "https://linkedin.com/company/bitcoinworld",
-    },
-    { name: "GitHub", icon: FaGithub, href: "https://github.com/bitcoinworld" },
   ];
 
   return (
