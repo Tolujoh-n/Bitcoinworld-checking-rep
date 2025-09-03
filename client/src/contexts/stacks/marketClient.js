@@ -1,9 +1,8 @@
-// marketClient.js
-import { Cl } from "@stacks/transactions";
+import { Cl, uintCV, intCV, AnchorMode, stringAsciiCV } from "@stacks/transactions";
 import { callContract, readOnlyCall, getWalletAddress } from "./stacksClient";
 
 // 🔹 Replace with actual deployed values
-const CONTRACT_ADDRESS = "ST123...";
+const CONTRACT_ADDRESS = "ST1PSHE32YTEE21FGYEVTA24N681KRGSQM4VF9XZP";
 const CONTRACT_NAME = "market";
 
 // ------------------- WRITE FUNCTIONS -------------------
@@ -12,7 +11,7 @@ export async function createMarket(initialLiquidity) {
     contractAddress: CONTRACT_ADDRESS,
     contractName: CONTRACT_NAME,
     functionName: "create",
-    functionArgs: [Cl.uint(initialLiquidity)],
+    functionArgs: [uintCV(initialLiquidity)],
   });
 }
 
@@ -43,14 +42,14 @@ export async function buyNo(amount) {
   });
 }
 
-export async function resolveMarket(outcome) {
-  return callContract({
-    contractAddress: CONTRACT_ADDRESS,
-    contractName: CONTRACT_NAME,
-    functionName: "resolve",
-    functionArgs: [Cl.string(outcome)],
-  });
-}
+// export async function resolveMarket(outcome) {
+//   return callContract({
+//     contractAddress: CONTRACT_ADDRESS,
+//     contractName: CONTRACT_NAME,
+//     functionName: "resolve",
+//     functionArgs: [Cl.string(outcome)],
+//   });
+// }
 
 export async function redeem() {
   return callContract({

@@ -1,5 +1,3 @@
-/* global BigInt */
-
 import {
   AppConfig,
   UserSession,
@@ -8,13 +6,14 @@ import {
 } from "@stacks/connect";
 import {
   AnchorMode,
-  callReadOnlyFunction,
+  fetchCallReadOnlyFunction,
   cvToJSON,
 } from "@stacks/transactions";
 import { StacksTestnet } from "@stacks/network";
-import axios from "../setupAxios";
-import { BACKEND_URL } from "../contexts/Bakendurl";
+import axios from "../../setupAxios";
+import { BACKEND_URL } from "../Bakendurl";
 
+// App setup
 const appConfig = new AppConfig(["store_write", "publish_data"]);
 export const userSession = new UserSession({ appConfig });
 
@@ -23,8 +22,10 @@ export const appDetails = {
   icon: "https://BitcoinWorld.app/BitcoinWorld.png",
 };
 
-// 🔹 Switch testnet/mainnet here
-export const network = new StacksTestnet();
+// ✅ Proper network object
+export const network = new StacksTestnet({
+  url: "https://api.testnet.hiro.so",
+});
 
 // SCALE = 1e6 for fixed-point math
 export const SCALE = 1_000_000n;
@@ -68,22 +69,6 @@ export function authenticate() {
   });
 }
 
-// ------------------- Amount Helpers -------------------
-export function toBaseUnits(amountFloat) {
-  // UI float → base units bigint
-  if (typeof BigInt === "function") {
-    return BigInt(Math.floor(amountFloat * Number(SCALE)));
-  } else {
-    // Fallback for environments without BigInt support
-    return parseInt(Math.floor(amountFloat * Number(SCALE)), 10);
-  }
-}
-
-export function fromBaseUnits(amountBigInt) {
-  // base units bigint → JS number
-  return Number(amountBigInt) / Number(SCALE);
-}
-
 // ------------------- Contract Call Wrapper -------------------
 export async function callContract({
   contractAddress,
@@ -105,25 +90,33 @@ export async function callContract({
     functionArgs,
   });
 
-  const options = {
-    contractAddress,
-    contractName,
-    functionName,
-    functionArgs,
-    network,
-    anchorMode: AnchorMode.Any,
-    appDetails,
-    onFinish: async (data) => {
-      console.log("📥 Tx submitted:", data);
-      if (onFinish) onFinish(data);
-    },
-    onCancel: () => {
-      console.warn("🚫 Tx cancelled");
-      if (onCancel) onCancel();
-    },
-  };
+  return new Promise((resolve, reject) => {
+    const options = {
+      contractAddress,
+      contractName,
+      functionName,
+      functionArgs,
+      network,
+      anchorMode: AnchorMode.Any,
+      appDetails,
+      onFinish: async (data) => {
+        console.log("📥 Tx submitted:", data);
+        if (onFinish) onFinish(data);
+        resolve(data.txId); // resolve with txId
+      },
+      onCancel: () => {
+        console.warn("🚫 Tx cancelled");
+        if (onCancel) onCancel();
+        reject(new Error("Transaction cancelled"));
+      },
+    };
 
-  await openContractCall(options);
+    try {
+      openContractCall(options);
+    } catch (err) {
+      reject(err);
+    }
+  });
 }
 
 // ------------------- Tx Confirmation Polling -------------------
@@ -155,7 +148,7 @@ export async function readOnlyCall({
   functionArgs = [],
   senderAddress,
 }) {
-  const res = await callReadOnlyFunction({
+  const res = await fetchCallReadOnlyFunction({
     contractAddress,
     contractName,
     functionName,
