@@ -4,6 +4,7 @@ import axios from "../setupAxios";
 import { BACKEND_URL } from "../contexts/Bakendurl";
 import { createMarket, tokenMint } from "../contexts/stacks/marketClient";
 import { pollTx, SCALE } from "../contexts/stacks/stacksClient"; // tx confirmation
+import TestWalletCall from "../contexts/stacks/TestWalletCall";
 
 const Admin = () => {
   const queryClient = useQueryClient();
@@ -638,6 +639,7 @@ const Admin = () => {
                   >
                     Create
                   </button>
+                  {/* <TestWalletCall /> */}
                 </div>
               </div>
             </div>

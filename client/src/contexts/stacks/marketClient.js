@@ -1,7 +1,7 @@
 import { Cl, uintCV, intCV, AnchorMode, stringAsciiCV } from "@stacks/transactions";
 import { callContract, readOnlyCall, getWalletAddress } from "./stacksClient";
 
-// 🔹 Replace with actual deployed values
+// Deployed values
 const CONTRACT_ADDRESS = "ST1PSHE32YTEE21FGYEVTA24N681KRGSQM4VF9XZP";
 const CONTRACT_NAME = "market";
 

@@ -1,9 +1,4 @@
-import {
-  AppConfig,
-  UserSession,
-  showConnect,
-  openContractCall,
-} from "@stacks/connect";
+import { AppConfig, UserSession, showConnect } from "@stacks/connect";
 import {
   AnchorMode,
   fetchCallReadOnlyFunction,
@@ -12,6 +7,7 @@ import {
 import { StacksTestnet } from "@stacks/network";
 import axios from "../../setupAxios";
 import { BACKEND_URL } from "../Bakendurl";
+import { request } from "@stacks/connect";
 
 // App setup
 const network = new StacksTestnet();
@@ -71,48 +67,38 @@ export async function callContract({
   contractName,
   functionName,
   functionArgs = [],
-  onFinish,
-  onCancel,
 }) {
   if (!isSignedIn()) {
-    authenticate();
+    await authenticate();
     throw new Error("Wallet not connected");
   }
 
-  console.log("📤 Calling contract:", {
+  // Convert Clarity values to JSON that Leather understands
+  const args = functionArgs.map((cv) => cvToJSON(cv));
+
+  console.log("Calling contract via Leather:", {
     contractAddress,
     contractName,
     functionName,
-    functionArgs,
+    functionArgs: args,
   });
 
-  return new Promise((resolve, reject) => {
-    const options = {
+  try {
+    const response = await request("stx_callContract", {
       contractAddress,
       contractName,
       functionName,
-      functionArgs,
-      network,
+      functionArgs: args,
+      network, 
       anchorMode: AnchorMode.Any,
-      appDetails,
-      onFinish: async (data) => {
-        console.log("📥 Tx submitted:", data);
-        if (onFinish) onFinish(data);
-        resolve(data.txId); // resolve with txId
-      },
-      onCancel: () => {
-        console.warn("🚫 Tx cancelled");
-        if (onCancel) onCancel();
-        reject(new Error("Transaction cancelled"));
-      },
-    };
+    });
 
-    try {
-      openContractCall(options);
-    } catch (err) {
-      reject(err);
-    }
-  });
+    console.log("Tx submitted:", response);
+    return response.txId;
+  } catch (err) {
+    console.error("Contract call failed:", err);
+    throw err;
+  }
 }
 
 // ------------------- Tx Confirmation Polling -------------------
@@ -125,11 +111,11 @@ export async function pollTx(txId, { interval = 5000, maxAttempts = 40 } = {}) {
       json.tx_status === "success" ||
       json.tx_status === "abort_by_response"
     ) {
-      console.log("✅ Tx confirmed:", json);
+      console.log("Tx confirmed:", json);
       return json;
     }
     if (json.tx_status === "failed") {
-      throw new Error("❌ Tx failed: " + JSON.stringify(json));
+      throw new Error("Tx failed: " + JSON.stringify(json));
     }
     await new Promise((r) => setTimeout(r, interval));
   }
