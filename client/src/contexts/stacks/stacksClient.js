@@ -14,6 +14,7 @@ import axios from "../../setupAxios";
 import { BACKEND_URL } from "../Bakendurl";
 
 // App setup
+const network = new StacksTestnet();
 const appConfig = new AppConfig(["store_write", "publish_data"]);
 export const userSession = new UserSession({ appConfig });
 
@@ -21,11 +22,6 @@ export const appDetails = {
   name: "BitcoinWorld",
   icon: "https://BitcoinWorld.app/BitcoinWorld.png",
 };
-
-// ✅ Proper network object
-export const network = new StacksTestnet({
-  url: "https://api.testnet.hiro.so",
-});
 
 // SCALE = 1e6 for fixed-point math
 export const SCALE = 1_000_000n;
