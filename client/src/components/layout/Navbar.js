@@ -15,6 +15,7 @@ import { useTheme } from "../../contexts/ThemeContext";
 import SearchModal from "../search/SearchModal";
 import logo from "../../assets/imgs/bw-logo.png";
 import { useAuth } from "../../contexts/AuthContext";
+import { NETWORK } from "../../contexts/Constants";
 
 const Navbar = () => {
   const { isDark, toggleTheme } = useTheme();
@@ -28,7 +29,8 @@ const Navbar = () => {
 
   useEffect(() => {
     if (userSession.isUserSignedIn()) {
-      const address = userSession.loadUserData().profile.stxAddress.mainnet;
+      const profile = userSession.loadUserData().profile;
+      const address = profile?.stxAddress?.[NETWORK] || "";
       setWalletAddress(address);
 
       // Call backend to get JWT and user info

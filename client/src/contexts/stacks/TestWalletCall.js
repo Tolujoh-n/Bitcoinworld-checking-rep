@@ -5,17 +5,17 @@ import {
   showConnect,
   openSTXTransfer,
 } from "@stacks/connect";
-import { StacksTestnet } from "@stacks/network";
+// import { StacksTestnet } from "@stacks/network";
 import { request } from "@stacks/connect";
 
 // --- Setup Stacks session ---
 const appConfig = new AppConfig(["store_write", "publish_data"]);
 const userSession = new UserSession({ appConfig });
-const network = new StacksTestnet();
+const network = "testnet";
 
 const appDetails = {
-  name: "BitcoinWorld Test",
-  icon: "https://BitcoinWorld.app/BitcoinWorld.png",
+  name: "Bitcoinworld",
+  icon: "https://imglink.io/i/139bee27-a14b-4e2d-99c3-3b05d9cb6e53.png",
 };
 
 // ---------------- Wallet helpers ----------------

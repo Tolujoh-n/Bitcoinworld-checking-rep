@@ -4,6 +4,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { userSession, authenticate } from "../utils/stacksConnect";
 import { BACKEND_URL } from "../contexts/Bakendurl";
+import { NETWORK } from "../contexts/Constants";
 
 const AdminAuth = () => {
   const navigate = useNavigate();
@@ -16,7 +17,8 @@ const AdminAuth = () => {
 
   useEffect(() => {
     if (userSession.isUserSignedIn()) {
-      const address = userSession.loadUserData().profile.stxAddress.mainnet;
+      const profile = userSession.loadUserData().profile;
+      const address = profile?.stxAddress?.[NETWORK] || "";
       setWalletAddress(address);
       setIsWalletConnected(true);
     } else {
@@ -35,7 +37,9 @@ const AdminAuth = () => {
     setError("");
     try {
       const url =
-        mode === "login" ? `${BACKEND_URL}/api/auth/admin-login` : `${BACKEND_URL}/api/auth/admin-register`;
+        mode === "login"
+          ? `${BACKEND_URL}/api/auth/admin-login`
+          : `${BACKEND_URL}/api/auth/admin-register`;
       const res = await axios.post(url, { walletAddress });
       const { token } = res.data;
       localStorage.setItem("bitcoinworld-token", token);

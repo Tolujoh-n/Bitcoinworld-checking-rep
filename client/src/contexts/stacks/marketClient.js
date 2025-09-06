@@ -1,26 +1,39 @@
-import { Cl, uintCV, intCV, AnchorMode, stringAsciiCV } from "@stacks/transactions";
+import {
+  Cl,
+  uintCV,
+  cvToHex,
+  principalCV,
+  intCV,
+  AnchorMode,
+  stringAsciiCV,
+} from "@stacks/transactions";
 import { callContract, readOnlyCall, getWalletAddress } from "./stacksClient";
 
 // Deployed values
 const CONTRACT_ADDRESS = "ST1PSHE32YTEE21FGYEVTA24N681KRGSQM4VF9XZP";
-const CONTRACT_NAME = "market";
+const CONTRACT_NAME = "market-factory-v2";
 
 // ------------------- WRITE FUNCTIONS -------------------
-export async function createMarket(initialLiquidity) {
+
+// create a market with id=m and initialLiquidity (satoshis)
+export async function createMarket(marketId, initialLiquidity) {
   return callContract({
     contractAddress: CONTRACT_ADDRESS,
     contractName: CONTRACT_NAME,
     functionName: "create",
-    functionArgs: [uintCV(initialLiquidity)],
+    functionArgs: [
+      cvToHex(uintCV(marketId)),
+      cvToHex(uintCV(initialLiquidity)),
+    ],
   });
 }
 
-export async function addLiquidity(amount) {
+export async function addLiquidity(marketId, amount) {
   return callContract({
     contractAddress: CONTRACT_ADDRESS,
     contractName: CONTRACT_NAME,
     functionName: "add-liquidity",
-    functionArgs: [Cl.uint(amount)],
+    functionArgs: [uintCV(marketId), uintCV(amount)],
   });
 }
 
@@ -29,7 +42,7 @@ export async function buyYes(amount) {
     contractAddress: CONTRACT_ADDRESS,
     contractName: CONTRACT_NAME,
     functionName: "buy-yes",
-    functionArgs: [Cl.uint(amount)],
+    functionArgs: [uintCV(amount)],
   });
 }
 
@@ -38,7 +51,7 @@ export async function buyNo(amount) {
     contractAddress: CONTRACT_ADDRESS,
     contractName: CONTRACT_NAME,
     functionName: "buy-no",
-    functionArgs: [Cl.uint(amount)],
+    functionArgs: [uintCV(amount)],
   });
 }
 
@@ -93,7 +106,7 @@ export async function tokenMint(amount, recipient) {
     contractAddress: CONTRACT_ADDRESS,
     contractName: CONTRACT_NAME,
     functionName: "mint",
-    functionArgs: [Cl.uint(amount), Cl.principal(recipient)],
+    functionArgs: [uintCV(amount), Cl.principal(recipient)],
   });
 }
 
@@ -102,7 +115,7 @@ export async function tokenBurn(amount) {
     contractAddress: CONTRACT_ADDRESS,
     contractName: CONTRACT_NAME,
     functionName: "burn",
-    functionArgs: [Cl.uint(amount)],
+    functionArgs: [uintCV(amount)],
   });
 }
 
@@ -112,10 +125,19 @@ export async function tokenTransfer(amount, sender, recipient) {
     contractName: CONTRACT_NAME,
     functionName: "transfer",
     functionArgs: [
-      Cl.uint(amount),
+      uintCV(amount),
       Cl.principal(sender),
       Cl.principal(recipient),
     ],
+  });
+}
+
+export async function sbtcTransfer(amount, sender, recipient) {
+  return callContract({
+    contractAddress: CONTRACT_ADDRESS,
+    contractName: "sbtc-v2",
+    functionName: "transfer",
+    functionArgs: [uintCV(amount), principalCV(sender), principalCV(recipient)],
   });
 }
 

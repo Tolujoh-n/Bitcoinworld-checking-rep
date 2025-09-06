@@ -99,12 +99,15 @@ const Admin = () => {
       // step 2: call contract to create market
       const contractAddress = process.env.REACT_APP_CONTRACT_ADDRESS;
       const initialLiquidity = SCALE;
+      const marketId = Date.now();
       console.log(
         "initialLiquidity:",
         initialLiquidity,
         typeof initialLiquidity
       );
-      const txid = await createMarket(initialLiquidity);
+      console.log("marketID:", marketId);
+      const txid = await createMarket(marketId, SCALE);
+
       console.log("CreateMarket tx submitted:", txid);
 
       const txResult = await pollTx(txid);
