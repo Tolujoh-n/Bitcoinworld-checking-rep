@@ -10,12 +10,16 @@ import {
   FaTimes,
   FaBitcoin,
 } from "react-icons/fa";
-import { userSession, authenticate } from "../../utils/stacksConnect";
+import {
+  authenticate,
+  logoutWallet,
+  getWalletAddress,
+} from "../../utils/stacksConnect";
 import { useTheme } from "../../contexts/ThemeContext";
 import SearchModal from "../search/SearchModal";
 import logo from "../../assets/imgs/bw-logo.png";
 import { useAuth } from "../../contexts/AuthContext";
-import { NETWORK } from "../../contexts/Constants";
+// import { NETWORK } from "../../contexts/Constants";
 
 const Navbar = () => {
   const { isDark, toggleTheme } = useTheme();
@@ -28,22 +32,23 @@ const Navbar = () => {
   const [walletAddress, setWalletAddress] = useState("");
 
   useEffect(() => {
-    if (userSession.isUserSignedIn()) {
-      const profile = userSession.loadUserData().profile;
-      const address = profile?.stxAddress?.[NETWORK] || "";
+    const address = getWalletAddress();
+    if (address) {
       setWalletAddress(address);
-
-      // Call backend to get JWT and user info
       loginWithWallet(address);
     }
   }, []);
 
-  const handleConnectWallet = () => {
-    authenticate();
+  const handleConnectWallet = async () => {
+    const address = await authenticate();
+    if (address) {
+      setWalletAddress(address);
+      await loginWithWallet(address);
+    }
   };
 
   const handleDisconnect = () => {
-    userSession.signUserOut("/");
+    logoutWallet(); // clears wallet connection
     setWalletAddress("");
     navigate("/");
   };

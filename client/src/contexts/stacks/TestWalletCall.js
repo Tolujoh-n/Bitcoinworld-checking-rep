@@ -5,8 +5,19 @@ import {
   showConnect,
   openSTXTransfer,
 } from "@stacks/connect";
+import {
+  makeContractCall,
+  broadcastTransaction,
+  AnchorMode,
+} from "@stacks/transactions";
 // import { StacksTestnet } from "@stacks/network";
-import { request } from "@stacks/connect";
+import { useConnect, useStacks } from "@stacks/connect-react";
+import { request, openContractCall } from "@stacks/connect";
+import {
+  contractPrincipalCV,
+  stringUtf8CV,
+  fetchCallReadOnlyFunction,
+} from "@stacks/transactions";
 
 // --- Setup Stacks session ---
 const appConfig = new AppConfig(["store_write", "publish_data"]);
@@ -48,6 +59,7 @@ function authenticate() {
 
 // ---------------- React component ----------------
 const TestSTXTransfer = () => {
+  const { doContractCall } = useConnect();
   const handleConnect = async () => {
     try {
       await authenticate();
@@ -82,15 +94,83 @@ const TestSTXTransfer = () => {
     }
   };
 
+  async function callContract() {
+    const txOptions = {
+      contractAddress: "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM",
+      contractName: "my-contract",
+      functionName: "transfer",
+      functionArgs: [],
+      anchorMode: AnchorMode.Any,
+    };
+
+    const transaction = await openContractCall(txOptions);
+    const broadcastResponse = await broadcastTransaction({ transaction });
+
+    console.log("Transaction ID:", broadcastResponse.txid);
+  }
+
+  // Example: a public (write) function using openContractCall
+  const writeMessage = async (message) => {
+    try {
+      await doContractCall({
+        network: "testnet",
+        contractAddress: "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM",
+        contractName: "my-contract",
+        functionName: "set-message",
+        functionArgs: [stringUtf8CV(message)],
+        postConditions: [], // Optional post-conditions
+        onFinish: (data) => {
+          console.log("Transaction finished:", data);
+        },
+        onCancel: () => {
+          console.log("User cancelled transaction");
+        },
+      });
+    } catch (error) {
+      console.error("Error calling write function:", error);
+    }
+  };
+
+  // Example: a read-only function
+  const readMessage = async () => {
+    try {
+      const functionName = "get-message";
+      const functionArgs = [stringUtf8CV("id1")]; // Arguments for the function
+
+      const result = await fetchCallReadOnlyFunction({
+        network: "testnet",
+        contractAddress: "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM",
+        contractName: "my-contract",
+        functionName,
+        functionArgs,
+        senderAddress: "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM", // Your sender address
+      });
+      console.log("Read function result:", result);
+    } catch (error) {
+      console.error("Error calling read function:", error);
+    }
+  };
+
   return (
-    <div className="flex flex-col gap-4">
-      <button className="btn-primary" onClick={handleConnect}>
-        Connect Wallet
-      </button>
-      <button className="btn-secondary" onClick={handleTransfer}>
-        Test STX Transfer
-      </button>
-    </div>
+    <>
+      <div className="flex flex-col gap-4">
+        <button className="btn-primary" onClick={handleConnect}>
+          Connect Wallet
+        </button>
+        <button className="btn-secondary" onClick={handleTransfer}>
+          Normal Transfer
+        </button>
+        <button className="btn-secondary" onClick={callContract}>
+          Contract Transfer
+        </button>
+      </div>
+      <div>
+        <button onClick={readMessage}>Read Message</button>
+        <button onClick={() => writeMessage("Hello, Stacks!")}>
+          Write Message
+        </button>
+      </div>
+    </>
   );
 };
 

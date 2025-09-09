@@ -1,20 +1,31 @@
-import { AppConfig, showConnect, UserSession } from "@stacks/connect";
+// utils/stacksConnect.js
+import {
+  connect,
+  getLocalStorage,
+  isConnected,
+  disconnect,
+} from "@stacks/connect";
 
-const appConfig = new AppConfig(["store_write", "publish_data"]);
-export const userSession = new UserSession({ appConfig });
+export async function authenticate() {
+  if (isConnected()) {
+    console.log("Already connected");
+    return getWalletAddress();
+  }
 
-export const appDetails = {
-  name: "BitcoinWorld",
-  icon: "https://BitcoinWorld.rocks/BitcoinWorld.png",
-};
+  const response = await connect(); // opens wallet popup
+  console.log("Wallet connected:", response.addresses);
 
-export function authenticate() {
-  showConnect({
-    appDetails,
-    redirectTo: "/",
-    onFinish: () => {
-      window.location.reload();
-    },
-    userSession,
-  });
+  return getWalletAddress();
+}
+
+export function logoutWallet() {
+  disconnect();
+}
+
+export function getWalletAddress() {
+  const userData = getLocalStorage();
+  if (userData?.addresses?.stx?.[0]?.address) {
+    return userData.addresses.stx[0].address;
+  }
+  return null;
 }

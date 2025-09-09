@@ -11,7 +11,12 @@
     "install-all": "npm install && cd server && npm install && cd ../client && npm install",
     "populate": "cd server && npm run populate"
   },
-  "keywords": ["prediction", "marketplace", "bitcoin", "polymarket"],
+  "keywords": [
+    "prediction",
+    "marketplace",
+    "bitcoin",
+    "polymarket"
+  ],
   "author": "BitcoinWorld Team",
   "license": "MIT",
   "devDependencies": {

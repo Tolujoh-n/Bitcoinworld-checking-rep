@@ -5,6 +5,9 @@
   "dependencies": {
     "@headlessui/react": "^2.2.7",
     "@stacks/connect": "^8.1.9",
+    "@stacks/connect-react": "^23.1.0",
+    "@stacks/connect-ui": "^8.1.0",
+    "@stacks/encryption": "^7.2.0",
     "@stacks/network": "^7.2.0",
     "@stacks/transactions": "^7.2.0",
     "@tailwindcss/aspect-ratio": "^0.4.2",

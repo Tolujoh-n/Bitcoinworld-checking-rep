@@ -642,7 +642,7 @@ const Admin = () => {
                   >
                     Create
                   </button>
-                  {/* <TestWalletCall /> */}
+                  <TestWalletCall />
                 </div>
               </div>
             </div>

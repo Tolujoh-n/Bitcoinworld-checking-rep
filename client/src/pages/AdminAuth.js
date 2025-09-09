@@ -2,9 +2,12 @@ import React, { useState, useEffect } from "react";
 import axios from "../setupAxios";
 import { useAuth } from "../contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
-import { userSession, authenticate } from "../utils/stacksConnect";
+import {
+  authenticate,
+  getWalletAddress,
+  logoutWallet,
+} from "../utils/stacksConnect";
 import { BACKEND_URL } from "../contexts/Bakendurl";
-import { NETWORK } from "../contexts/Constants";
 
 const AdminAuth = () => {
   const navigate = useNavigate();
@@ -16,9 +19,8 @@ const AdminAuth = () => {
   const [isWalletConnected, setIsWalletConnected] = useState(false);
 
   useEffect(() => {
-    if (userSession.isUserSignedIn()) {
-      const profile = userSession.loadUserData().profile;
-      const address = profile?.stxAddress?.[NETWORK] || "";
+    const address = getWalletAddress();
+    if (address) {
       setWalletAddress(address);
       setIsWalletConnected(true);
     } else {
@@ -27,8 +29,12 @@ const AdminAuth = () => {
     }
   }, []);
 
-  const handleConnectWallet = () => {
-    authenticate();
+  const handleConnectWallet = async () => {
+    const address = await authenticate();
+    if (address) {
+      setWalletAddress(address);
+      setIsWalletConnected(true);
+    }
   };
 
   const handleSubmit = async (e) => {

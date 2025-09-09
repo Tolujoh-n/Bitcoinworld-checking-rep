@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 import axios from "../setupAxios";
 import toast from "react-hot-toast";
 import { BACKEND_URL } from "./Bakendurl";
+import { logoutWallet } from "../utils/stacksConnect";
 
 const AuthContext = createContext();
 
@@ -27,6 +28,28 @@ export const AuthProvider = ({ children }) => {
     } else {
       delete axios.defaults.headers.common["Authorization"];
     }
+  }, [token]);
+
+  useEffect(() => {
+    const interceptor = axios.interceptors.response.use(
+      (response) => response,
+      async (error) => {
+        if (error.response?.status === 401 && token) {
+          const refreshed = await refreshToken();
+          if (refreshed.success) {
+            error.config.headers[
+              "Authorization"
+            ] = `Bearer ${localStorage.getItem("bitcoinworld-token")}`;
+            return axios.request(error.config); // retry request
+          } else {
+            logout();
+          }
+        }
+        return Promise.reject(error);
+      }
+    );
+
+    return () => axios.interceptors.response.eject(interceptor);
   }, [token]);
 
   // Check if user is authenticated on mount
@@ -117,6 +140,7 @@ export const AuthProvider = ({ children }) => {
     setToken(null);
     localStorage.removeItem("bitcoinworld-token");
     delete axios.defaults.headers.common["Authorization"];
+    logoutWallet(); // clear wallet session too
     toast.success("Logged out successfully");
   };
 
@@ -158,7 +182,7 @@ export const AuthProvider = ({ children }) => {
     try {
       setToken(newToken);
       localStorage.setItem("bitcoinworld-token", newToken);
-      axios.defaults.headers.common["Authorization"] = `Bearer ${newToken}`;
+      // axios.defaults will be updated automatically by useEffect
       const me = await axios.get(`${BACKEND_URL}/api/auth/me`);
       setUser(me.data);
       return { success: true };
