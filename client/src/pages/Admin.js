@@ -2,9 +2,11 @@ import React, { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "react-query";
 import axios from "../setupAxios";
 import { BACKEND_URL } from "../contexts/Bakendurl";
-import { createMarket, tokenMint } from "../contexts/stacks/marketClient";
-import { pollTx, SCALE } from "../contexts/stacks/stacksClient"; // tx confirmation
-import TestWalletCall from "../contexts/stacks/TestWalletCall";
+import {
+  createMarket,
+  tokenMint,
+  pollTx,
+} from "../contexts/stacks/marketClient";
 
 const Admin = () => {
   const queryClient = useQueryClient();
@@ -98,48 +100,53 @@ const Admin = () => {
 
       // step 2: call contract to create market
       const contractAddress = process.env.REACT_APP_CONTRACT_ADDRESS;
-      const initialLiquidity = SCALE;
       const marketId = Date.now();
+      const initialLiquidity = 1;
+
       console.log(
         "initialLiquidity:",
         initialLiquidity,
         typeof initialLiquidity
       );
       console.log("marketID:", marketId);
-      const txid = await createMarket(marketId, SCALE);
 
-      console.log("CreateMarket tx submitted:", txid);
+      const tx = await createMarket(marketId, initialLiquidity);
+      console.log("CreateMarket tx submitted:", tx);
 
-      const txResult = await pollTx(txid);
+      const txResult = await pollTx(tx.txId);
       console.log("CreateMarket confirmed:", txResult);
 
       // step 3: auto-mint tokens for each poll option
       const mintAmount = 100n * 1_000_000n; // 100 tokens per option (in SCALE)
       const adminPrincipal = process.env.REACT_APP_ADMIN_ADDRESS;
 
+      const optionsWithTokens = [];
+
       for (const option of optionsList) {
         const tokenName = `${option.text
           .toLowerCase()
           .replace(/\s+/g, "-")}-token`;
+
         console.log(`Minting for option: ${option.text} (${tokenName})`);
 
-        const mintTxid = await tokenMint(
-          contractAddress,
-          tokenName,
-          mintAmount,
-          adminPrincipal
-        );
-        await pollTx(mintTxid);
+        const mintTx = await tokenMint(tokenName, mintAmount, adminPrincipal);
+        await pollTx(mintTx.txId);
 
         console.log(`Minted ${mintAmount} of ${tokenName}`);
+
+        optionsWithTokens.push({
+          ...option,
+          tokenName,
+        });
       }
 
       // step 4: push to backend
       return (
         await axios.post(`${BACKEND_URL}/api/polls`, {
           ...payload,
+          options: optionsWithTokens, // include tokenName
           contractId: `${contractAddress}.market`,
-          txid,
+          txid: tx.txId,
         })
       ).data;
     },
@@ -642,7 +649,6 @@ const Admin = () => {
                   >
                     Create
                   </button>
-                  <TestWalletCall />
                 </div>
               </div>
             </div>
