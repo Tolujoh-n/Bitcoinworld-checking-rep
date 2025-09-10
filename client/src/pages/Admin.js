@@ -1112,17 +1112,22 @@ const Admin = () => {
                   Resolve Poll
                 </h2>
                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                  Choose winning option index (0 -{" "}
-                  {Math.max(0, (resolvingPoll.options?.length || 1) - 1)})
+                  Select the winning option:
                 </p>
-                <input
+                <select
                   className="input w-full"
-                  type="number"
-                  min="0"
-                  max={(resolvingPoll.options?.length || 1) - 1}
                   value={resolveIndex}
                   onChange={(e) => setResolveIndex(e.target.value)}
-                />
+                >
+                  <option value="" disabled>
+                    -- Select option --
+                  </option>
+                  {resolvingPoll.options?.map((opt, idx) => (
+                    <option key={idx} value={idx}>
+                      {opt.text || `Option ${idx}`}
+                    </option>
+                  ))}
+                </select>
                 <div className="flex justify-end gap-2 mt-6">
                   <button
                     className="btn-outline"

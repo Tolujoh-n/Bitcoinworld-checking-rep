@@ -1,9 +1,15 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { FaBookmark, FaBookmark as FaBookmarkSolid, FaChartLine, FaClock, FaUser } from 'react-icons/fa';
-import { useAuth } from '../../contexts/AuthContext';
-import axios from '../../setupAxios';
-import toast from 'react-hot-toast';
+import React, { useState } from "react";
+import { Link } from "react-router-dom";
+import {
+  FaBookmark,
+  FaBookmark as FaBookmarkSolid,
+  FaChartLine,
+  FaClock,
+  FaUser,
+} from "react-icons/fa";
+import { useAuth } from "../../contexts/AuthContext";
+import axios from "../../setupAxios";
+import toast from "react-hot-toast";
 import { BACKEND_URL } from "../../contexts/Bakendurl";
 
 const PollCard = ({ poll, compact = false }) => {
@@ -14,19 +20,21 @@ const PollCard = ({ poll, compact = false }) => {
   const handleSave = async (e) => {
     e.preventDefault();
     e.stopPropagation();
-    
+
     if (!isAuthenticated) {
-      toast.error('Please login to save polls');
+      toast.error("Please login to save polls");
       return;
     }
 
     setSaving(true);
     try {
-      const response = await axios.post(`${BACKEND_URL}/api/polls/${poll._id}/save`);
+      const response = await axios.post(
+        `${BACKEND_URL}/api/polls/${poll._id}/save`
+      );
       setIsSaved(response.data.saved);
       toast.success(response.data.message);
     } catch (error) {
-      toast.error('Failed to save poll');
+      toast.error("Failed to save poll");
     } finally {
       setSaving(false);
     }
@@ -37,7 +45,7 @@ const PollCard = ({ poll, compact = false }) => {
     const end = new Date(endDate);
     const diff = end - now;
 
-    if (diff <= 0) return 'Ended';
+    if (diff <= 0) return "Ended";
 
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
     const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
@@ -50,7 +58,7 @@ const PollCard = ({ poll, compact = false }) => {
 
   const getLeadingOption = () => {
     if (!poll.options || poll.options.length === 0) return null;
-    return poll.options.reduce((leading, option) => 
+    return poll.options.reduce((leading, option) =>
       option.percentage > leading.percentage ? option : leading
     );
   };
@@ -78,7 +86,9 @@ const PollCard = ({ poll, compact = false }) => {
           {leadingOption && (
             <div className="mt-2">
               <div className="flex justify-between text-xs mb-1">
-                <span className="text-gray-600 dark:text-gray-300">{leadingOption.text}</span>
+                <span className="text-gray-600 dark:text-gray-300">
+                  {leadingOption.text}
+                </span>
                 <span className="font-medium">{leadingOption.percentage}%</span>
               </div>
               <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1">
@@ -95,7 +105,7 @@ const PollCard = ({ poll, compact = false }) => {
   }
 
   return (
-    <div className="card-hover">
+    <div className="card-hover" style={{ position: "relative" }}>
       <Link to={`/poll/${poll._id}`} className="block p-6">
         {/* Header */}
         <div className="flex items-start justify-between mb-4">
@@ -164,7 +174,7 @@ const PollCard = ({ poll, compact = false }) => {
           <div className="flex items-center space-x-4">
             <span className="flex items-center space-x-1">
               <FaChartLine className="w-3 h-3" />
-              <span>${poll.totalVolume?.toLocaleString() || '0'}</span>
+              <span>${poll.totalVolume?.toLocaleString() || "0"}</span>
             </span>
             <span className="flex items-center space-x-1">
               <FaUser className="w-3 h-3" />
@@ -189,6 +199,26 @@ const PollCard = ({ poll, compact = false }) => {
           </div>
         )}
       </Link>
+      <br />
+      {poll.isResolved && (
+        <span
+          style={{
+            position: "absolute",
+            bottom: 12,
+            right: 12,
+            zIndex: 10,
+            background: "#38a169",
+            color: "white",
+            padding: "2px 10px",
+            borderRadius: "12px",
+            fontSize: "0.75rem",
+            fontWeight: 600,
+            boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
+          }}
+        >
+          Resolved
+        </span>
+      )}
     </div>
   );
 };
