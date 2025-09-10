@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useMemo } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { useQuery } from "react-query";
 import axios from "../setupAxios";
@@ -17,6 +17,38 @@ const Profile = () => {
     ["my-trades"],
     async () => (await axios.get(`${BACKEND_URL}/api/trades/user`)).data
   );
+
+  // Traded polls filter state
+  const [tradeFilter, setTradeFilter] = useState("Active");
+
+  // Derive unique polls from trades (some trades may reference same poll)
+  const tradedPolls = useMemo(() => {
+    const list = (trades?.trades || []).map((t) => t.poll).filter(Boolean);
+    const map = {};
+    list.forEach((p) => {
+      if (!p || !p._id) return;
+      if (!map[p._id]) map[p._id] = p;
+    });
+    return Object.values(map);
+  }, [trades]);
+
+  const filteredTradedPolls = useMemo(() => {
+    const now = new Date();
+    switch (tradeFilter) {
+      case "Active":
+        return tradedPolls.filter(
+          (p) => !p.isResolved && new Date(p.endDate) > now
+        );
+      case "Ended":
+        return tradedPolls.filter(
+          (p) => !p.isResolved && new Date(p.endDate) <= now
+        );
+      case "Resolved":
+        return tradedPolls.filter((p) => p.isResolved);
+      default:
+        return tradedPolls;
+    }
+  }, [tradeFilter, tradedPolls]);
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -53,6 +85,45 @@ const Profile = () => {
               {(saved || []).map((p) => (
                 <PollCard key={p._id} poll={p} />
               ))}
+            </div>
+          )}
+        </div>
+
+        {/* Traded polls: quick access area */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-soft p-6 mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+              Traded Polls
+            </h2>
+            <div className="inline-flex bg-gray-100 dark:bg-gray-700 rounded-md p-1">
+              {["Active", "Ended", "Resolved"].map((t) => (
+                <button
+                  key={t}
+                  onClick={() => setTradeFilter(t)}
+                  className={`px-3 py-1 text-sm ${
+                    tradeFilter === t
+                      ? "bg-white dark:bg-gray-800 shadow"
+                      : "bg-transparent"
+                  }`}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {loadingTrades ? (
+            <LoadingSpinner />
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {(filteredTradedPolls || []).map((p) => (
+                <PollCard key={p._id} poll={p} />
+              ))}
+              {(!filteredTradedPolls || filteredTradedPolls.length === 0) && (
+                <div className="text-sm text-gray-500">
+                  No traded polls found for this filter.
+                </div>
+              )}
             </div>
           )}
         </div>
