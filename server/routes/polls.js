@@ -302,8 +302,11 @@ router.get("/:id", optionalAuth, async (req, res) => {
       orderBook = await Trade.getOrderBook(poll._id, 0);
     }
 
-    // Get trade history
-    const tradeHistory = await Trade.getTradeHistory(poll._id, 50);
+    // Get recent trade history (include pending/completed so UI shows recent trades immediately)
+    const tradeHistory = await Trade.find({ poll: poll._id })
+      .populate("user", "username avatar")
+      .sort({ createdAt: -1 })
+      .limit(50);
 
     res.json({
       poll,

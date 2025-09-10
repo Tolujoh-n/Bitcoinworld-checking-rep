@@ -131,7 +131,7 @@ const Profile = () => {
         {/* Trade history */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-soft p-6">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-            My Trades
+            My Trades History
           </h2>
           {loadingTrades ? (
             <LoadingSpinner />

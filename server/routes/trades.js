@@ -375,3 +375,56 @@ async function updatePollStatistics(pollId) {
 }
 
 module.exports = router;
+
+// POST /api/trades/redeem -> allow user to claim payout for a resolved poll
+router.post("/redeem", auth, async (req, res) => {
+  try {
+    const { pollId } = req.body;
+    if (!pollId) return res.status(400).json({ message: "pollId required" });
+
+    // Find user's completed, eligible, unclaimed trades for this poll
+    const trades = await Trade.find({
+      poll: pollId,
+      user: req.user._id,
+      status: "completed",
+      eligible: true,
+      claimed: false,
+    });
+    if (!trades || trades.length === 0)
+      return res.status(400).json({ message: "No eligible rewards" });
+
+    // Sum payout amounts and mark claimed
+    let totalPayout = 0;
+    for (const t of trades) {
+      totalPayout += t.payoutAmount || 0;
+      t.claimed = true;
+      await t.save();
+    }
+
+    // Credit user balance
+    await User.findByIdAndUpdate(req.user._id, {
+      $inc: { balance: totalPayout, successfulTrades: trades.length },
+    });
+
+    res.json({ message: "Reward claimed", amount: totalPayout });
+  } catch (err) {
+    console.error("Redeem error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// GET /api/trades/claimed/:pollId -> check if user has claimed rewards for poll
+router.get("/claimed/:pollId", auth, async (req, res) => {
+  try {
+    const { pollId } = req.params;
+    const claimed = await Trade.exists({
+      poll: pollId,
+      user: req.user._id,
+      claimed: true,
+    });
+    res.json({ claimed: !!claimed });
+  } catch (err) {
+    console.error("Check claimed error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});

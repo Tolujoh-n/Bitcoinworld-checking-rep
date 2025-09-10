@@ -1,9 +1,11 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
+import { useAuth } from "../contexts/AuthContext";
 import { useQuery, useMutation, useQueryClient } from "react-query";
 import axios from "../setupAxios";
 import LoadingSpinner from "../components/common/LoadingSpinner";
 import { FaChartLine, FaClock } from "react-icons/fa";
+import Redeem from "../components/layout/Redeem";
 import { BACKEND_URL } from "../contexts/Bakendurl";
 import {
   ResponsiveContainer,
@@ -22,6 +24,7 @@ import toast from "react-hot-toast";
 const PollDetail = () => {
   const { id } = useParams();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const [side, setSide] = useState("buy");
   const [selectedOptionIndex, setSelectedOptionIndex] = useState(0);
   const [amount, setAmount] = useState("");
@@ -61,7 +64,93 @@ const PollDetail = () => {
   const poll = data?.poll;
   const [liveOrderBook, setLiveOrderBook] = useState(data?.orderBook || null);
   const [liveTrades, setLiveTrades] = useState(data?.tradeHistory || []);
-  const [justResolved, setJustResolved] = useState(null); // winningOption index
+  // remove unused justResolved
+  const [claimed, setClaimed] = useState(false);
+  // static contract data (temporary placeholder until we read from chain)
+  const [contractData] = useState({
+    outcome: "Yes",
+    optionPool: { yes: 200, no: 300 },
+    optionBalance: { yes: 15, no: 13 },
+    pool: 500,
+    rewardClaimed: false,
+  });
+
+  // user's trades on this poll
+  const userTrades = useMemo(() => {
+    if (!user || !liveTrades) return [];
+    return liveTrades.filter(
+      (t) => t.user === user._id || (t.user && t.user._id === user._id)
+    );
+  }, [user, liveTrades]);
+
+  // determine if user has winning trade by comparing DB trades and contract outcome
+  const didUserWin = useMemo(() => {
+    if (!userTrades.length) return false;
+    // try to map contract outcome string to an option index
+    const outcomeStr = (contractData?.outcome || "").toString().toLowerCase();
+    const contractIdx = poll?.options?.findIndex((o) =>
+      o.text?.toLowerCase().includes(outcomeStr)
+    );
+    // if poll is resolved and winningOption exists, prefer that
+    const winningIdx =
+      typeof poll?.winningOption === "number"
+        ? poll.winningOption
+        : contractIdx;
+    if (typeof winningIdx !== "number" || winningIdx < 0) return false;
+    return userTrades.some((t) => t.optionIndex === winningIdx);
+  }, [userTrades, poll, contractData]);
+
+  // keep liveTrades in sync when server data changes (fix: trades disappear after refresh)
+  useEffect(() => {
+    setLiveTrades(data?.tradeHistory || []);
+  }, [data?.tradeHistory]);
+
+  const isEnded = useMemo(() => {
+    if (!poll) return false;
+    const now = new Date();
+    return !poll.isResolved && new Date(poll.endDate) <= now;
+  }, [poll]);
+
+  const formatCurrency = (n) =>
+    typeof n === "number" ? `$${n.toLocaleString()}` : n;
+
+  useEffect(() => {
+    if (!user || !poll?.isResolved) return;
+    axios
+      .get(`${BACKEND_URL}/api/trades/claimed/${poll._id}`)
+      .then((res) => setClaimed(!!res.data.claimed))
+      .catch(() => setClaimed(false));
+  }, [user, poll]);
+
+  // Log contract data and backend-derived trade info for debugging/inspection
+  useEffect(() => {
+    console.groupCollapsed(`Poll ${poll?._id} - contract vs backend`);
+    console.log("contractData:", contractData);
+    console.log("poll (backend):", poll);
+    console.log("userTrades:", userTrades);
+    console.log("liveTrades (sample):", liveTrades.slice(0, 10));
+    console.groupEnd();
+  }, [contractData, poll, userTrades, liveTrades]);
+
+  const redeemMutation = useMutation(
+    async () => {
+      const res = await axios.post(`${BACKEND_URL}/api/trades/redeem`, {
+        pollId: poll._id,
+      });
+      return res.data;
+    },
+    {
+      onSuccess: (data) => {
+        setClaimed(true);
+        // Update user in auth context by invalidating /me or refetching
+        queryClient.invalidateQueries(["me"]);
+        toast.success(`Claimed $${data.amount}`);
+      },
+      onError: (err) => {
+        toast.error(err?.response?.data?.message || "Redeem failed");
+      },
+    }
+  );
 
   const timeRemaining = useMemo(() => {
     if (!poll) return "";
@@ -113,7 +202,6 @@ const PollDetail = () => {
             winningOption: payload.winningOption,
           },
         }));
-        setJustResolved(payload.winningOption);
         const opt =
           (data?.poll?.options || [])[payload.winningOption]?.text ||
           `Option ${payload.winningOption}`;
@@ -124,7 +212,7 @@ const PollDetail = () => {
       socket.emit("leave-poll", id);
       socket.disconnect();
     };
-  }, [id, queryClient]);
+  }, [id, queryClient, data?.poll?.options]);
 
   if (isLoading) {
     return (
@@ -312,147 +400,165 @@ const PollDetail = () => {
 
           {/* Trade panel: show after options for small screens */}
           <div className="block lg:hidden">
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-soft p-6 mt-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                  Trade
-                </h3>
-                <div className="inline-flex rounded-md overflow-hidden border border-gray-200 dark:border-gray-700">
-                  <button
-                    onClick={() => setSide("buy")}
-                    className={`px-3 py-1 text-sm ${
-                      side === "buy"
-                        ? "bg-emerald-600 text-white"
-                        : "bg-transparent text-gray-700 dark:text-gray-300"
-                    }`}
-                  >
-                    Buy
-                  </button>
-                  <button
-                    onClick={() => setSide("sell")}
-                    className={`px-3 py-1 text-sm ${
-                      side === "sell"
-                        ? "bg-red-600 text-white"
-                        : "bg-transparent text-gray-700 dark:text-gray-300"
-                    }`}
-                  >
-                    Sell
-                  </button>
-                </div>
+            {/* If poll resolved, show redeem/lose/ended logic; otherwise show trade panel */}
+            {poll.isResolved ? (
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-soft p-6 mt-6">
+                <Redeem
+                  contractData={contractData}
+                  user={user}
+                  userTrades={userTrades}
+                  poll={poll}
+                  isEnded={isEnded}
+                  didUserWin={didUserWin}
+                  redeemMutation={redeemMutation}
+                  claimed={claimed}
+                  formatCurrency={formatCurrency}
+                />
               </div>
-
-              {/* Option selector */}
-              <label className="block text-xs text-gray-500 dark:text-gray-400 mb-2">
-                Option
-              </label>
-              <div className="space-y-2 mb-4">
-                {poll.options.map((opt, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => setSelectedOptionIndex(idx)}
-                    className={`w-full flex items-center justify-between p-3 rounded border text-sm ${
-                      selectedOptionIndex === idx
-                        ? "border-primary-400 bg-yellow-600 dark:bg-primary-950/40 text-gray-900 dark:text-gray-100"
-                        : "border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300"
-                    }`}
-                  >
-                    <span>{opt.text}</span>
-                    <span className="font-semibold">{opt.percentage}%</span>
-                  </button>
-                ))}
-              </div>
-
-              {/* Inputs */}
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1">
-                    Amount
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
-                    placeholder="0.00"
-                    className="input w-full"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1">
-                    Price (0-1)
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="1"
-                    step="0.01"
-                    value={price}
-                    onChange={(e) => setPrice(e.target.value)}
-                    placeholder="0.50"
-                    className="input w-full"
-                  />
-                </div>
-                <button
-                  onClick={() => tradeMutation.mutate()}
-                  disabled={
-                    !amount || Number(amount) <= 0 || tradeMutation.isLoading
-                  }
-                  className={`w-full ${
-                    side === "buy" ? "btn-primary" : "btn-danger"
-                  } disabled:opacity-50 disabled:cursor-not-allowed`}
-                >
-                  {tradeMutation.isLoading
-                    ? "Placing order..."
-                    : `${side === "buy" ? "Buy" : "Sell"} ${
-                        poll.options[selectedOptionIndex]?.text || ""
+            ) : (
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-soft p-6 mt-6">
+                {/* ...existing mobile trade panel preserved... */}
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                    Trade
+                  </h3>
+                  <div className="inline-flex rounded-md overflow-hidden border border-gray-200 dark:border-gray-700">
+                    <button
+                      onClick={() => setSide("buy")}
+                      className={`px-3 py-1 text-sm ${
+                        side === "buy"
+                          ? "bg-emerald-600 text-white"
+                          : "bg-transparent text-gray-700 dark:text-gray-300"
                       }`}
-                </button>
-              </div>
+                    >
+                      Buy
+                    </button>
+                    <button
+                      onClick={() => setSide("sell")}
+                      className={`px-3 py-1 text-sm ${
+                        side === "sell"
+                          ? "bg-red-600 text-white"
+                          : "bg-transparent text-gray-700 dark:text-gray-300"
+                      }`}
+                    >
+                      Sell
+                    </button>
+                  </div>
+                </div>
 
-              {/* Order book (if available) */}
-              {(liveOrderBook || data?.orderBook) && (
-                <div className="mt-6">
-                  <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2">
-                    Order Book
-                  </h4>
-                  <div className="grid grid-cols-2 gap-3 text-sm">
-                    <div>
-                      <div className="text-emerald-600 mb-1">Buys</div>
-                      <div className="space-y-1">
-                        {(liveOrderBook || data?.orderBook)?.buyOrders?.map(
-                          (o) => (
-                            <div
-                              key={o._id}
-                              className="flex justify-between text-gray-700 dark:text-gray-300"
-                            >
-                              <span>{o.amount}</span>
-                              <span>{o.price}</span>
-                            </div>
-                          )
-                        )}
+                {/* Option selector */}
+                <label className="block text-xs text-gray-500 dark:text-gray-400 mb-2">
+                  Option
+                </label>
+                <div className="space-y-2 mb-4">
+                  {poll.options.map((opt, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setSelectedOptionIndex(idx)}
+                      className={`w-full flex items-center justify-between p-3 rounded border text-sm ${
+                        selectedOptionIndex === idx
+                          ? "border-primary-400 bg-yellow-600 dark:bg-primary-950/40 text-gray-900 dark:text-gray-100"
+                          : "border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300"
+                      }`}
+                    >
+                      <span>{opt.text}</span>
+                      <span className="font-semibold">{opt.percentage}%</span>
+                    </button>
+                  ))}
+                </div>
+
+                {/* Inputs */}
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1">
+                      Amount
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={amount}
+                      onChange={(e) => setAmount(e.target.value)}
+                      placeholder="0.00"
+                      className="input w-full"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1">
+                      Price (0-1)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="1"
+                      step="0.01"
+                      value={price}
+                      onChange={(e) => setPrice(e.target.value)}
+                      placeholder="0.50"
+                      className="input w-full"
+                    />
+                  </div>
+                  <button
+                    onClick={() => tradeMutation.mutate()}
+                    disabled={
+                      !amount || Number(amount) <= 0 || tradeMutation.isLoading
+                    }
+                    className={`w-full ${
+                      side === "buy" ? "btn-primary" : "btn-danger"
+                    } disabled:opacity-50 disabled:cursor-not-allowed`}
+                  >
+                    {tradeMutation.isLoading
+                      ? "Placing order..."
+                      : `${side === "buy" ? "Buy" : "Sell"} ${
+                          poll.options[selectedOptionIndex]?.text || ""
+                        }`}
+                  </button>
+                </div>
+
+                {/* Order book (if available) */}
+                {(liveOrderBook || data?.orderBook) && (
+                  <div className="mt-6">
+                    <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2">
+                      Order Book
+                    </h4>
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <div className="text-emerald-600 mb-1">Buys</div>
+                        <div className="space-y-1">
+                          {(liveOrderBook || data?.orderBook)?.buyOrders?.map(
+                            (o) => (
+                              <div
+                                key={o._id}
+                                className="flex justify-between text-gray-700 dark:text-gray-300"
+                              >
+                                <span>{o.amount}</span>
+                                <span>{o.price}</span>
+                              </div>
+                            )
+                          )}
+                        </div>
                       </div>
-                    </div>
-                    <div>
-                      <div className="text-red-500 mb-1">Sells</div>
-                      <div className="space-y-1">
-                        {(liveOrderBook || data?.orderBook)?.sellOrders?.map(
-                          (o) => (
-                            <div
-                              key={o._id}
-                              className="flex justify-between text-gray-700 dark:text-gray-300"
-                            >
-                              <span>{o.amount}</span>
-                              <span>{o.price}</span>
-                            </div>
-                          )
-                        )}
+                      <div>
+                        <div className="text-red-500 mb-1">Sells</div>
+                        <div className="space-y-1">
+                          {(liveOrderBook || data?.orderBook)?.sellOrders?.map(
+                            (o) => (
+                              <div
+                                key={o._id}
+                                className="flex justify-between text-gray-700 dark:text-gray-300"
+                              >
+                                <span>{o.amount}</span>
+                                <span>{o.price}</span>
+                              </div>
+                            )
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              )}
-            </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Trade history */}
@@ -460,54 +566,57 @@ const PollDetail = () => {
             <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
               Recent Trades
             </h3>
+
             {liveTrades.length === 0 ? (
               <p className="text-sm text-gray-500 dark:text-gray-400">
                 No trades yet.
               </p>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full text-sm">
-                  <thead>
-                    <tr className="text-left text-gray-500 dark:text-gray-400">
-                      <th className="py-2 pr-4">Time</th>
-                      <th className="py-2 pr-4">Side</th>
-                      <th className="py-2 pr-4">Option</th>
-                      <th className="py-2 pr-4">Amount</th>
-                      <th className="py-2 pr-4">Price</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {liveTrades.slice(0, 15).map((t) => (
-                      <tr
-                        key={t._id}
-                        className="border-t border-gray-100 dark:border-gray-700"
-                      >
-                        <td className="py-2 pr-4 text-gray-700 dark:text-gray-300">
-                          {new Date(t.createdAt).toLocaleString()}
-                        </td>
-                        <td
-                          className={`py-2 pr-4 ${
-                            t.type === "buy"
-                              ? "text-emerald-600"
-                              : "text-red-500"
-                          }`}
-                        >
-                          {t.type.toUpperCase()}
-                        </td>
-                        <td className="py-2 pr-4 text-gray-700 dark:text-gray-300">
-                          {poll.options[t.optionIndex]?.text || t.optionIndex}
-                        </td>
-                        <td className="py-2 pr-4 text-gray-700 dark:text-gray-300">
-                          {t.amount}
-                        </td>
-                        <td className="py-2 pr-4 text-gray-700 dark:text-gray-300">
-                          {t.price}
-                        </td>
+              <>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full text-sm">
+                    <thead>
+                      <tr className="text-left text-gray-500 dark:text-gray-400">
+                        <th className="py-2 pr-4">Time</th>
+                        <th className="py-2 pr-4">Side</th>
+                        <th className="py-2 pr-4">Option</th>
+                        <th className="py-2 pr-4">Amount</th>
+                        <th className="py-2 pr-4">Price</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody>
+                      {liveTrades.slice(0, 15).map((t) => (
+                        <tr
+                          key={t._id}
+                          className="border-t border-gray-100 dark:border-gray-700"
+                        >
+                          <td className="py-2 pr-4 text-gray-700 dark:text-gray-300">
+                            {new Date(t.createdAt).toLocaleString()}
+                          </td>
+                          <td
+                            className={`py-2 pr-4 ${
+                              t.type === "buy"
+                                ? "text-emerald-600"
+                                : "text-red-500"
+                            }`}
+                          >
+                            {t.type.toUpperCase()}
+                          </td>
+                          <td className="py-2 pr-4 text-gray-700 dark:text-gray-300">
+                            {poll.options[t.optionIndex]?.text || t.optionIndex}
+                          </td>
+                          <td className="py-2 pr-4 text-gray-700 dark:text-gray-300">
+                            {t.amount}
+                          </td>
+                          <td className="py-2 pr-4 text-gray-700 dark:text-gray-300">
+                            {t.price}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
             )}
           </div>
 
@@ -518,144 +627,163 @@ const PollDetail = () => {
         {/* Right: Trading panel for large screens */}
         <div className="hidden lg:block lg:col-span-1">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-soft p-6 sticky top-24">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                Trade
-              </h3>
-              <div className="inline-flex rounded-md overflow-hidden border border-gray-200 dark:border-gray-700">
-                <button
-                  onClick={() => setSide("buy")}
-                  className={`px-3 py-1 text-sm ${
-                    side === "buy"
-                      ? "bg-emerald-600 text-white"
-                      : "bg-transparent text-gray-700 dark:text-gray-300"
-                  }`}
-                >
-                  Buy
-                </button>
-                <button
-                  onClick={() => setSide("sell")}
-                  className={`px-3 py-1 text-sm ${
-                    side === "sell"
-                      ? "bg-red-600 text-white"
-                      : "bg-transparent text-gray-700 dark:text-gray-300"
-                  }`}
-                >
-                  Sell
-                </button>
-              </div>
-            </div>
+            {/* contract outcome */}
 
-            {/* Option selector */}
-            <label className="block text-xs text-gray-500 dark:text-gray-400 mb-2">
-              Option
-            </label>
-            <div className="space-y-2 mb-4">
-              {poll.options.map((opt, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => setSelectedOptionIndex(idx)}
-                  className={`w-full flex items-center justify-between p-3 rounded border text-sm ${
-                    selectedOptionIndex === idx
-                      ? "border-primary-400 bg-yellow-600 dark:bg-primary-950/40 text-gray-900 dark:text-gray-100"
-                      : "border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300"
-                  }`}
-                >
-                  <span>{opt.text}</span>
-                  <span className="font-semibold">{opt.percentage}%</span>
-                </button>
-              ))}
-            </div>
-
-            {/* Inputs */}
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1">
-                  Amount
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  placeholder="0.00"
-                  className="input w-full"
-                />
-              </div>
-              <div>
-                <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1">
-                  Price (0-1)
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  max="1"
-                  step="0.01"
-                  value={price}
-                  onChange={(e) => setPrice(e.target.value)}
-                  placeholder="0.50"
-                  className="input w-full"
-                />
-              </div>
-              <button
-                onClick={() => tradeMutation.mutate()}
-                disabled={
-                  !amount || Number(amount) <= 0 || tradeMutation.isLoading
-                }
-                className={`w-full ${
-                  side === "buy" ? "btn-primary" : "btn-danger"
-                } disabled:opacity-50 disabled:cursor-not-allowed`}
-              >
-                {tradeMutation.isLoading
-                  ? "Placing order..."
-                  : `${side === "buy" ? "Buy" : "Sell"} ${
-                      poll.options[selectedOptionIndex]?.text || ""
-                    }`}
-              </button>
-            </div>
-
-            {/* Order book (if available) */}
-            {(liveOrderBook || data?.orderBook) && (
-              <div className="mt-6">
-                <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2">
-                  Order Book
-                </h4>
-                <div className="grid grid-cols-2 gap-3 text-sm">
-                  <div>
-                    <div className="text-emerald-600 mb-1">Buys</div>
-                    <div className="space-y-1">
-                      {(liveOrderBook || data?.orderBook)?.buyOrders?.map(
-                        (o) => (
-                          <div
-                            key={o._id}
-                            className="flex justify-between text-gray-700 dark:text-gray-300"
-                          >
-                            <span>{o.amount}</span>
-                            <span>{o.price}</span>
-                          </div>
-                        )
-                      )}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-red-500 mb-1">Sells</div>
-                    <div className="space-y-1">
-                      {(liveOrderBook || data?.orderBook)?.sellOrders?.map(
-                        (o) => (
-                          <div
-                            key={o._id}
-                            className="flex justify-between text-gray-700 dark:text-gray-300"
-                          >
-                            <span>{o.amount}</span>
-                            <span>{o.price}</span>
-                          </div>
-                        )
-                      )}
-                    </div>
+            {/* If poll is resolved, show redeem/lose/ended logic; otherwise show trade panel */}
+            {poll.isResolved ? (
+              <Redeem
+                contractData={contractData}
+                user={user}
+                userTrades={userTrades}
+                poll={poll}
+                isEnded={isEnded}
+                didUserWin={didUserWin}
+                redeemMutation={redeemMutation}
+                claimed={claimed}
+                formatCurrency={formatCurrency}
+              />
+            ) : (
+              <>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                    Trade
+                  </h3>
+                  <div className="inline-flex rounded-md overflow-hidden border border-gray-200 dark:border-gray-700">
+                    <button
+                      onClick={() => setSide("buy")}
+                      className={`px-3 py-1 text-sm ${
+                        side === "buy"
+                          ? "bg-emerald-600 text-white"
+                          : "bg-transparent text-gray-700 dark:text-gray-300"
+                      }`}
+                    >
+                      Buy
+                    </button>
+                    <button
+                      onClick={() => setSide("sell")}
+                      className={`px-3 py-1 text-sm ${
+                        side === "sell"
+                          ? "bg-red-600 text-white"
+                          : "bg-transparent text-gray-700 dark:text-gray-300"
+                      }`}
+                    >
+                      Sell
+                    </button>
                   </div>
                 </div>
-              </div>
+
+                {/* Option selector */}
+                <label className="block text-xs text-gray-500 dark:text-gray-400 mb-2">
+                  Option
+                </label>
+                <div className="space-y-2 mb-4">
+                  {poll.options.map((opt, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setSelectedOptionIndex(idx)}
+                      className={`w-full flex items-center justify-between p-3 rounded border text-sm ${
+                        selectedOptionIndex === idx
+                          ? "border-primary-400 bg-yellow-600 dark:bg-primary-950/40 text-gray-900 dark:text-gray-100"
+                          : "border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300"
+                      }`}
+                    >
+                      <span>{opt.text}</span>
+                      <span className="font-semibold">{opt.percentage}%</span>
+                    </button>
+                  ))}
+                </div>
+
+                {/* Inputs */}
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1">
+                      Amount
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={amount}
+                      onChange={(e) => setAmount(e.target.value)}
+                      placeholder="0.00"
+                      className="input w-full"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1">
+                      Price (0-1)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="1"
+                      step="0.01"
+                      value={price}
+                      onChange={(e) => setPrice(e.target.value)}
+                      placeholder="0.50"
+                      className="input w-full"
+                    />
+                  </div>
+                  <button
+                    onClick={() => tradeMutation.mutate()}
+                    disabled={
+                      !amount || Number(amount) <= 0 || tradeMutation.isLoading
+                    }
+                    className={`w-full ${
+                      side === "buy" ? "btn-primary" : "btn-danger"
+                    } disabled:opacity-50 disabled:cursor-not-allowed`}
+                  >
+                    {tradeMutation.isLoading
+                      ? "Placing order..."
+                      : `${side === "buy" ? "Buy" : "Sell"} ${
+                          poll.options[selectedOptionIndex]?.text || ""
+                        }`}
+                  </button>
+                </div>
+
+                {/* Order book (if available) */}
+                {(liveOrderBook || data?.orderBook) && (
+                  <div className="mt-6">
+                    <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2">
+                      Order Book
+                    </h4>
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <div className="text-emerald-600 mb-1">Buys</div>
+                        <div className="space-y-1">
+                          {(liveOrderBook || data?.orderBook)?.buyOrders?.map(
+                            (o) => (
+                              <div
+                                key={o._id}
+                                className="flex justify-between text-gray-700 dark:text-gray-300"
+                              >
+                                <span>{o.amount}</span>
+                                <span>{o.price}</span>
+                              </div>
+                            )
+                          )}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-red-500 mb-1">Sells</div>
+                        <div className="space-y-1">
+                          {(liveOrderBook || data?.orderBook)?.sellOrders?.map(
+                            (o) => (
+                              <div
+                                key={o._id}
+                                className="flex justify-between text-gray-700 dark:text-gray-300"
+                              >
+                                <span>{o.amount}</span>
+                                <span>{o.price}</span>
+                              </div>
+                            )
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>
