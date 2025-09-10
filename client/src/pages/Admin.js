@@ -103,48 +103,14 @@ const Admin = () => {
       const marketId = Date.now();
       const initialLiquidity = 1;
 
-      console.log(
-        "initialLiquidity:",
-        initialLiquidity,
-        typeof initialLiquidity
-      );
-      console.log("marketID:", marketId);
-
       const tx = await createMarket(marketId, initialLiquidity);
-      console.log("CreateMarket tx submitted:", tx);
+      await pollTx(tx.txId);
 
-      const txResult = await pollTx(tx.txId);
-      console.log("CreateMarket confirmed:", txResult);
-
-      // step 3: auto-mint tokens for each poll option
-      const mintAmount = 100n * 1_000_000n; // 100 tokens per option (in SCALE)
-      const adminPrincipal = process.env.REACT_APP_ADMIN_ADDRESS;
-
-      const optionsWithTokens = [];
-
-      for (const option of optionsList) {
-        const tokenName = `${option.text
-          .toLowerCase()
-          .replace(/\s+/g, "-")}-token`;
-
-        console.log(`Minting for option: ${option.text} (${tokenName})`);
-
-        const mintTx = await tokenMint(tokenName, mintAmount, adminPrincipal);
-        await pollTx(mintTx.txId);
-
-        console.log(`Minted ${mintAmount} of ${tokenName}`);
-
-        optionsWithTokens.push({
-          ...option,
-          tokenName,
-        });
-      }
-
-      // step 4: push to backend
+      // step 3: push to backend (no token mint, include marketId)
       return (
         await axios.post(`${BACKEND_URL}/api/polls`, {
           ...payload,
-          options: optionsWithTokens, // include tokenName
+          marketId, // save this for blockchain tracking
           contractId: `${contractAddress}.market`,
           txid: tx.txId,
         })

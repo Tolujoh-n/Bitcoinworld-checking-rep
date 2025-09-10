@@ -45,22 +45,26 @@ async function contractCall({ functionName, functionArgs = [] }) {
   await ensureWalletAuth();
 
   return new Promise((resolve, reject) => {
-    openContractCall({
-      network: "testnet",
-      contractAddress: CONTRACT_ADDRESS,
-      contractName: CONTRACT_NAME,
-      functionName,
-      functionArgs,
-      appDetails: APP_DETAILS,
-      onFinish: (data) => {
-        console.log(`✅ ${functionName} tx:`, data);
-        resolve(data);
-      },
-      onCancel: () => {
-        console.warn(`⚠️ User cancelled ${functionName}`);
-        reject(new Error("User cancelled"));
-      },
-    }).catch((err) => reject(err));
+    try {
+      openContractCall({
+        network: "testnet",
+        contractAddress: CONTRACT_ADDRESS,
+        contractName: CONTRACT_NAME,
+        functionName,
+        functionArgs,
+        appDetails: APP_DETAILS,
+        onFinish: (data) => {
+          console.log(`✅ ${functionName} tx:`, data);
+          resolve(data);
+        },
+        onCancel: () => {
+          console.warn(`⚠️ User cancelled ${functionName}`);
+          reject(new Error("User cancelled"));
+        },
+      });
+    } catch (err) {
+      reject(err);
+    }
   });
 }
 
@@ -84,6 +88,8 @@ async function contractRead({ functionName, functionArgs = [] }) {
 }
 
 // ------------------- WRITE FUNCTIONS -------------------
+
+// Create a market
 export async function createMarket(marketId, initialLiquidity) {
   return contractCall({
     functionName: "create-market",
@@ -91,6 +97,7 @@ export async function createMarket(marketId, initialLiquidity) {
   });
 }
 
+// Add liquidity to a market
 export async function addLiquidity(marketId, amount) {
   return contractCall({
     functionName: "add-liquidity",
@@ -98,38 +105,79 @@ export async function addLiquidity(marketId, amount) {
   });
 }
 
-export async function buyYes(amount) {
+// Buy YES tokens
+export async function buyYes(marketId, amount) {
   return contractCall({
     functionName: "buy-yes",
-    functionArgs: [uintCV(amount)],
+    functionArgs: [uintCV(marketId), uintCV(amount)],
   });
 }
 
-export async function buyNo(amount) {
+// Buy NO tokens
+export async function buyNo(marketId, amount) {
   return contractCall({
     functionName: "buy-no",
-    functionArgs: [uintCV(amount)],
+    functionArgs: [uintCV(marketId), uintCV(amount)],
   });
 }
 
-export async function redeem() {
+// Buy YES tokens with auto-cap
+export async function buyYesAuto(marketId, amount, targetCap, maxCost) {
+  return contractCall({
+    functionName: "buy-yes-auto",
+    functionArgs: [
+      uintCV(marketId),
+      uintCV(amount),
+      uintCV(targetCap),
+      uintCV(maxCost),
+    ],
+  });
+}
+
+// Buy NO tokens with auto-cap
+export async function buyNoAuto(marketId, amount, targetCap, maxCost) {
+  return contractCall({
+    functionName: "buy-no-auto",
+    functionArgs: [
+      uintCV(marketId),
+      uintCV(amount),
+      uintCV(targetCap),
+      uintCV(maxCost),
+    ],
+  });
+}
+
+// Resolve a market (YES / NO)
+export async function resolveMarket(marketId, result) {
+  return contractCall({
+    functionName: "resolve",
+    functionArgs: [uintCV(marketId), stringUtf8CV(result)], // result: "YES" or "NO"
+  });
+}
+
+// Redeem winnings for a market
+export async function redeem(marketId) {
   return contractCall({
     functionName: "redeem",
+    functionArgs: [uintCV(marketId)],
   });
 }
 
+// Withdraw surplus funds
 export async function withdrawSurplus() {
   return contractCall({
     functionName: "withdraw-surplus",
   });
 }
 
+// Pause the contract
 export async function pause() {
   return contractCall({
     functionName: "pause",
   });
 }
 
+// Unpause the contract
 export async function unpause() {
   return contractCall({
     functionName: "unpause",
@@ -188,31 +236,97 @@ export async function sbtcTransfer(amount, sender, recipient) {
 }
 
 // ------------------- READ-ONLY GETTERS -------------------
-export async function getQYes() {
-  return contractRead({ functionName: "get-q-yes" });
+
+// Pool size (sats)
+export async function getPool(marketId) {
+  return contractRead({
+    functionName: "get-pool",
+    functionArgs: [uintCV(marketId)],
+  });
 }
 
-export async function getQNo() {
-  return contractRead({ functionName: "get-q-no" });
+// LMSR parameter b
+export async function getB(marketId) {
+  return contractRead({
+    functionName: "get-b",
+    functionArgs: [uintCV(marketId)],
+  });
 }
 
-export async function getPool() {
-  return contractRead({ functionName: "get-pool" });
+// Status: "open" or "resolved"
+export async function getStatus(marketId) {
+  return contractRead({
+    functionName: "get-status",
+    functionArgs: [uintCV(marketId)],
+  });
 }
 
-export async function getStatus() {
-  return contractRead({ functionName: "get-status" });
+// Outcome: "", "YES", or "NO"
+export async function getOutcome(marketId) {
+  return contractRead({
+    functionName: "get-outcome",
+    functionArgs: [uintCV(marketId)],
+  });
 }
 
-export async function getOutcome() {
-  return contractRead({ functionName: "get-outcome" });
+// Market initialized?
+export async function getInitialized(marketId) {
+  return contractRead({
+    functionName: "get-initialized",
+    functionArgs: [uintCV(marketId)],
+  });
 }
 
-export async function getB() {
-  return contractRead({ functionName: "get-b" });
+// YES token supply
+export async function getYesSupply(marketId) {
+  return contractRead({
+    functionName: "get-yes-supply",
+    functionArgs: [uintCV(marketId)],
+  });
 }
 
-const STACKS_API_URL = "https://api.testnet.hiro.so";
+// NO token supply
+export async function getNoSupply(marketId) {
+  return contractRead({
+    functionName: "get-no-supply",
+    functionArgs: [uintCV(marketId)],
+  });
+}
+
+// YES balance of a user
+export async function getYesBalance(marketId, principal) {
+  return contractRead({
+    functionName: "get-yes-balance",
+    functionArgs: [uintCV(marketId), principalCV(principal)],
+  });
+}
+
+// NO balance of a user
+export async function getNoBalance(marketId, principal) {
+  return contractRead({
+    functionName: "get-no-balance",
+    functionArgs: [uintCV(marketId), principalCV(principal)],
+  });
+}
+
+// Cap for a user
+export async function getCap(marketId, principal) {
+  return contractRead({
+    functionName: "get-cap",
+    functionArgs: [uintCV(marketId), principalCV(principal)],
+  });
+}
+
+// Spent amount for a user
+export async function getSpent(marketId, principal) {
+  return contractRead({
+    functionName: "get-spent",
+    functionArgs: [uintCV(marketId), principalCV(principal)],
+  });
+}
+
+// Use backend proxy to avoid CORS issues
+const STACKS_PROXY_API = `${BACKEND_URL}/api/stacks`;
 
 /**
  * Polls a transaction until it's confirmed or failed
@@ -224,7 +338,8 @@ export async function pollTx(txId, interval = 5000, maxAttempts = 60) {
   console.log(`Polling tx: ${txId}`);
   for (let i = 0; i < maxAttempts; i++) {
     try {
-      const res = await axios.get(`${STACKS_API_URL}/extended/v1/tx/${txId}`);
+      // Use backend proxy to avoid CORS
+      const res = await axios.get(`${STACKS_PROXY_API}/tx/${txId}`);
       if (res.data.tx_status === "success") {
         console.log("Transaction confirmed ✅:", res.data);
         return res.data;
