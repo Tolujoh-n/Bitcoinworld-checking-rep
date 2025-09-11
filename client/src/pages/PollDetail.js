@@ -55,9 +55,8 @@ const PollDetail = () => {
     { staleTime: 60 * 1000 }
   );
 
-  // order type and auto-cap
+  // order type
   const [orderType, setOrderType] = useState("market"); // 'market' | 'limit'
-  const [useAutoCap, setUseAutoCap] = useState(false);
 
   const poll = data?.poll;
   const [liveOrderBook, setLiveOrderBook] = useState(data?.orderBook || null);
@@ -88,7 +87,6 @@ const PollDetail = () => {
 
   // tiny no-op to reference setters so lint doesn't complain while feature is present
   useEffect(() => {
-    void setUseAutoCap;
     void setLiveOrderBook;
   }, []);
 
@@ -130,6 +128,12 @@ const PollDetail = () => {
       },
     }
   );
+
+  // debug logs: show contract data and backend poll response
+  useEffect(() => {
+    console.log("contractData:", contractData);
+    console.log("backend data:", data);
+  }, [contractData, data]);
 
   // fetch contract read-only data
   useEffect(() => {
@@ -269,54 +273,62 @@ const PollDetail = () => {
         orderType,
       };
 
-      if (orderType === "market") {
-        if (!poll?.marketId)
-          throw new Error("Missing marketId for on-chain execution");
-        const marketId = Number(poll.marketId);
-        const isYes = selectedOptionIndex === 0;
+      // determine option text (backend stores option text like 'yes'/'no')
+      const selectedOptionText = (
+        poll?.options?.[selectedOptionIndex]?.text || ""
+      )
+        .toString()
+        .toLowerCase()
+        .trim();
+      const isYes =
+        selectedOptionText.includes("yes") || selectedOptionIndex === 0;
 
+      if (!poll?.marketId) {
+        toast.error("Missing marketId for on-chain execution");
+        return Promise.reject(new Error("Missing marketId"));
+      }
+      const marketId = Number(poll.marketId);
+
+      // For market orders call buyYes/buyNo/sellYes/sellNo
+      if (orderType === "market") {
         try {
           let txResult = null;
           if (side === "buy") {
-            if (useAutoCap) {
-              const targetCap = Math.ceil(Number(amount) * 1.1) || 1;
-              const maxCost = Math.ceil(Number(amount) * 1.2) || 1;
-              txResult = isYes
-                ? await buyYesAuto(marketId, Number(amount), targetCap, maxCost)
-                : await buyNoAuto(marketId, Number(amount), targetCap, maxCost);
-            } else {
-              txResult = isYes
-                ? await buyYes(marketId, Number(amount))
-                : await buyNo(marketId, Number(amount));
-            }
+            txResult = isYes
+              ? await buyYes(marketId, Number(amount))
+              : await buyNo(marketId, Number(amount));
           } else {
-            if (useAutoCap) {
-              const targetCap = Math.ceil(Number(amount) * 1.1) || 1;
-              const maxCost = Math.ceil(Number(amount) * 1.2) || 1;
-              txResult = isYes
-                ? await sellYesAuto(
-                    marketId,
-                    Number(amount),
-                    targetCap,
-                    maxCost
-                  )
-                : await sellNoAuto(
-                    marketId,
-                    Number(amount),
-                    targetCap,
-                    maxCost
-                  );
-            } else {
-              txResult = isYes
-                ? await sellYes(marketId, Number(amount))
-                : await sellNo(marketId, Number(amount));
-            }
+            txResult = isYes
+              ? await sellYes(marketId, Number(amount))
+              : await sellNo(marketId, Number(amount));
           }
-
           if (txResult)
             payload.txId = txResult?.txId || txResult?.tx_id || null;
         } catch (err) {
           console.error("On-chain trade failed", err);
+          throw err;
+        }
+      } else {
+        // Limit orders -> call auto variants (buyYesAuto, buyNoAuto, sellYesAuto, sellNoAuto)
+        try {
+          const amt = Math.ceil(Number(amount) || 0);
+          const p = Number(price) || 0;
+          const targetCap = Math.max(1, amt);
+          const maxCost = Math.max(1, Math.ceil(amt * (p || 1)));
+          let txResult = null;
+          if (side === "buy") {
+            txResult = isYes
+              ? await buyYesAuto(marketId, amt, targetCap, maxCost)
+              : await buyNoAuto(marketId, amt, targetCap, maxCost);
+          } else {
+            txResult = isYes
+              ? await sellYesAuto(marketId, amt, targetCap, maxCost)
+              : await sellNoAuto(marketId, amt, targetCap, maxCost);
+          }
+          if (txResult)
+            payload.txId = txResult?.txId || txResult?.tx_id || null;
+        } catch (err) {
+          console.error("On-chain auto trade failed", err);
           throw err;
         }
       }

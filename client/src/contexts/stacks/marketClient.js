@@ -372,7 +372,7 @@ export async function getSpent(marketId, principal) {
 // get reward claimed true/false
 export async function getRewardClaimed(marketId, principal) {
   return contractRead({
-    functionName: "get-reward-claimed",
+    functionName: "get-spent",
     functionArgs: [uintCV(marketId), principalCV(principal)],
   });
 }
