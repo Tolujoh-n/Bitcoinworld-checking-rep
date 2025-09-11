@@ -6,6 +6,7 @@ import {
   createMarket,
   tokenMint,
   pollTx,
+  resolveMarket,
 } from "../contexts/stacks/marketClient";
 
 const Admin = () => {
@@ -168,12 +169,35 @@ const Admin = () => {
     }
   );
   const resolveMutation = useMutation(
-    async ({ id, winningOption }) =>
-      (
+    async ({ id, winningOption }) => {
+      // 1. Get poll from list (has marketId and options)
+      const poll = (polls?.polls || []).find((p) => p._id === id);
+      if (!poll) throw new Error("Poll not found");
+      if (!poll.marketId) throw new Error("Poll missing marketId");
+      const marketId = Number(poll.marketId);
+      if (!Number.isFinite(marketId)) throw new Error("Invalid marketId");
+      const option = poll.options?.[winningOption];
+      if (!option) throw new Error("Invalid winning option");
+      // 2. Map option text to YES/NO (contract expects "YES" or "NO")
+      let result = (option.text || "").toString().toUpperCase().trim();
+      if (result !== "YES" && result !== "NO") {
+        // fallback: if not exactly YES/NO, try to map
+        if (winningOption === 0) result = "YES";
+        else if (winningOption === 1) result = "NO";
+        else throw new Error("Option text must be YES or NO");
+      }
+      // 3. Call contract to resolve market
+      const tx = await resolveMarket(marketId, result);
+      console.log("⏳ Waiting for on-chain resolve confirmation", tx);
+      await pollTx(tx.txId);
+      // 4. Only after on-chain success, POST to backend
+      return (
         await axios.post(`${BACKEND_URL}/api/admin/polls/${id}/resolve`, {
           winningOption,
+          txid: tx.txId,
         })
-      ).data,
+      ).data;
+    },
     {
       onSuccess: () => {
         setResolvingPoll(null);

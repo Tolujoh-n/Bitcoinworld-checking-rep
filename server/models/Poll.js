@@ -158,6 +158,16 @@ const pollSchema = new mongoose.Schema(
       state: String,
       city: String,
     },
+    // Has the market's reward been claimed (server-side flag)
+    rewardClaimed: {
+      type: Boolean,
+      default: false,
+    },
+    // Last redeem transaction id (optional, for audit)
+    lastRedeemTx: {
+      type: String,
+      default: null,
+    },
   },
   {
     timestamps: true,

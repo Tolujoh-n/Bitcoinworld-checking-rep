@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useRef } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { useQuery, useMutation, useQueryClient } from "react-query";
@@ -35,6 +35,7 @@ import {
   buyNoAuto,
   sellYesAuto,
   sellNoAuto,
+  redeem,
   pollTx,
 } from "../contexts/stacks/marketClient";
 
@@ -65,7 +66,7 @@ const PollDetail = () => {
   const [claimed, setClaimed] = useState(false);
 
   // dynamic contract data
-  const [contractData, setContractData] = useState({
+  const [contractData] = useState({
     outcome: "",
     optionPool: { yes: 0, no: 0 },
     optionBalance: { yes: 0, no: 0 },
@@ -74,7 +75,7 @@ const PollDetail = () => {
     yesSupply: 0,
     noSupply: 0,
   });
-  const [contractLoading, setContractLoading] = useState(false);
+  const [contractLoading] = useState(false);
 
   // compute market price from on-chain pools (0-1)
   const marketPrice = useMemo(() => {
@@ -111,9 +112,36 @@ const PollDetail = () => {
   const redeemMutation = useMutation(
     async () => {
       if (!poll) throw new Error("No poll");
-      const res = await axios.post(`${BACKEND_URL}/api/trades/redeem`, {
-        pollId: poll._id,
-      });
+      if (!poll.marketId) throw new Error("Missing marketId for redeem");
+      const marketId = Number(poll.marketId);
+
+      // call on-chain redeem via wallet
+      let txRes = null;
+      try {
+        txRes = await redeem(marketId);
+      } catch (err) {
+        console.error("On-chain redeem failed or cancelled", err);
+        throw err;
+      }
+
+      const txId = txRes?.txId || txRes?.tx_id || txRes?.txid || null;
+      if (!txId) throw new Error("No txId returned from wallet for redeem");
+
+      // wait for on-chain confirmation
+      try {
+        await pollTx(txId, 5000, 60);
+      } catch (err) {
+        console.error("Redeem transaction failed to confirm", err);
+        throw err;
+      }
+
+      // notify backend to mark rewardClaimed true
+      const res = await axios.post(
+        `${BACKEND_URL}/api/polls/${poll._id}/redeem`,
+        {
+          txid: txId,
+        }
+      );
       return res.data;
     },
     {
@@ -131,7 +159,7 @@ const PollDetail = () => {
   );
 
   // debug logs: show contract data and backend poll response only once
-  const _logged = useRef({ contract: false, backend: false });
+  // logging guard (kept for potential debug use) - currently unused
 
   // useEffect(() => {
   //   // log backend data once when it first arrives

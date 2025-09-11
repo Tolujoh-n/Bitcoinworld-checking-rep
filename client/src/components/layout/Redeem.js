@@ -67,7 +67,9 @@ export default function Redeem({
         <div>
           <h3 className="text-xs text-gray-500">Reward Claimed</h3>
           <p className="text-lg font-semibold mt-1">
-            {contractData.rewardClaimed ? "Yes" : "No"}
+            {poll?.rewardClaimed || contractData.rewardClaimed || claimed
+              ? "Yes"
+              : "No"}
           </p>
         </div>
       </div>
@@ -116,7 +118,7 @@ export default function Redeem({
         {poll.isResolved ? (
           user && userTrades.length > 0 ? (
             didUserWin ? (
-              contractData.rewardClaimed || claimed ? (
+              poll?.rewardClaimed || contractData.rewardClaimed || claimed ? (
                 <button className="w-full bg-gray-300 text-gray-700 font-semibold py-2 rounded-md cursor-not-allowed">
                   Reward claimed
                 </button>

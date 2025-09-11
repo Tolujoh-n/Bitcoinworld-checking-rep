@@ -537,6 +537,33 @@ router.post("/:id/save", auth, async (req, res) => {
   }
 });
 
+// @route   POST /api/polls/:id/redeem
+// @desc    Mark reward as claimed for a poll (after on-chain redeem)
+// @access  Private
+router.post("/:id/redeem", auth, async (req, res) => {
+  try {
+    const { txid } = req.body;
+    const poll = await Poll.findById(req.params.id);
+    if (!poll) return res.status(404).json({ message: "Poll not found" });
+
+    if (!poll.marketId) {
+      return res
+        .status(400)
+        .json({ message: "Poll does not have an associated marketId" });
+    }
+
+    // mark claimed and save tx id for audit
+    poll.rewardClaimed = true;
+    poll.lastRedeemTx = txid || null;
+    await poll.save();
+
+    res.json({ message: "Reward marked claimed", poll });
+  } catch (error) {
+    console.error("Redeem poll error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
 // @route   GET /api/polls/saved
 // @desc    Get user's saved polls
 // @access  Private

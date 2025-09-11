@@ -2,6 +2,7 @@ import {
   uintCV,
   principalCV,
   stringUtf8CV,
+  stringAsciiCV,
   PostConditionMode,
 } from "@stacks/transactions";
 import { openContractCall } from "@stacks/connect";
@@ -267,7 +268,7 @@ export async function sellNoAuto(marketId, amount, targetCap, maxCost) {
 export async function resolveMarket(marketId, result) {
   return contractCall({
     functionName: "resolve",
-    functionArgs: [uintCV(marketId), stringUtf8CV(result)], // result: "YES" or "NO"
+    functionArgs: [uintCV(marketId), stringAsciiCV(result)], // result: "YES" or "NO"
   });
 }
 
