@@ -18,8 +18,24 @@ import {
   CartesianGrid,
 } from "recharts";
 import CommentsSection from "../components/comments/CommentsSection";
-import { io } from "socket.io-client";
 import toast from "react-hot-toast";
+import {
+  getPool,
+  getOutcome,
+  getYesSupply,
+  getNoSupply,
+  getYesBalance,
+  getNoBalance,
+  getRewardClaimed,
+  buyYes,
+  buyNo,
+  sellYes,
+  sellNo,
+  buyYesAuto,
+  buyNoAuto,
+  sellYesAuto,
+  sellNoAuto,
+} from "../contexts/stacks/marketClient";
 
 const PollDetail = () => {
   const { id } = useParams();
@@ -39,41 +55,167 @@ const PollDetail = () => {
     { staleTime: 60 * 1000 }
   );
 
-  const tradeMutation = useMutation(
-    async () => {
-      const payload = {
-        pollId: id,
-        type: side,
-        optionIndex: selectedOptionIndex,
-        amount: Number(amount),
-        price: Number(price),
-        orderType: "market",
-      };
-      const res = await axios.post(`${BACKEND_URL}/api/trades`, payload);
-      return res.data;
-    },
-    {
-      onSuccess: () => {
-        queryClient.invalidateQueries(["poll-detail", id]);
-        queryClient.invalidateQueries(["trades", id]);
-        setAmount("");
-      },
-    }
-  );
+  // order type and auto-cap
+  const [orderType, setOrderType] = useState("market"); // 'market' | 'limit'
+  const [useAutoCap, setUseAutoCap] = useState(false);
 
   const poll = data?.poll;
   const [liveOrderBook, setLiveOrderBook] = useState(data?.orderBook || null);
   const [liveTrades, setLiveTrades] = useState(data?.tradeHistory || []);
-  // remove unused justResolved
   const [claimed, setClaimed] = useState(false);
-  // static contract data (temporary placeholder until we read from chain)
-  const [contractData] = useState({
-    outcome: "Yes",
-    optionPool: { yes: 200, no: 300 },
-    optionBalance: { yes: 15, no: 13 },
-    pool: 500,
+
+  // dynamic contract data
+  const [contractData, setContractData] = useState({
+    outcome: "",
+    optionPool: { yes: 0, no: 0 },
+    optionBalance: { yes: 0, no: 0 },
+    pool: 0,
     rewardClaimed: false,
+    yesSupply: 0,
+    noSupply: 0,
   });
+  const [contractLoading, setContractLoading] = useState(false);
+
+  // compute market price from on-chain pools (0-1)
+  const marketPrice = useMemo(() => {
+    if (!contractData || !contractData.pool) return 0.5;
+    // map selected option to yes/no pools for binary markets
+    const idx = selectedOptionIndex === 0 ? "yes" : "no";
+    const optPool = contractData.optionPool?.[idx] ?? 0;
+    const price = contractData.pool ? optPool / contractData.pool : 0.5;
+    return Number(price.toFixed(2));
+  }, [contractData, selectedOptionIndex]);
+
+  // tiny no-op to reference setters so lint doesn't complain while feature is present
+  useEffect(() => {
+    void setUseAutoCap;
+    void setLiveOrderBook;
+  }, []);
+
+  // human-readable time remaining
+  const timeRemaining = useMemo(() => {
+    if (!poll) return "";
+    if (poll.isResolved) return "Resolved";
+    const end = new Date(poll.endDate);
+    const now = new Date();
+    const diff = end - now;
+    if (diff <= 0) return "Ended";
+    const mins = Math.floor(diff / 60000);
+    const hours = Math.floor(mins / 60);
+    const days = Math.floor(hours / 24);
+    if (days > 0) return `${days}d ${hours % 24}h`;
+    if (hours > 0) return `${hours}h ${mins % 60}m`;
+    return `${mins}m`;
+  }, [poll]);
+
+  // redeem mutation for claiming rewards on resolved polls
+  const redeemMutation = useMutation(
+    async () => {
+      if (!poll) throw new Error("No poll");
+      const res = await axios.post(`${BACKEND_URL}/api/trades/redeem`, {
+        pollId: poll._id,
+      });
+      return res.data;
+    },
+    {
+      onSuccess: (res) => {
+        setClaimed(true);
+        queryClient.invalidateQueries(["poll-detail", id]);
+        toast.success(res?.message || "Reward claimed");
+      },
+      onError: (err) => {
+        toast.error(
+          err?.response?.data?.message || err.message || "Redeem failed"
+        );
+      },
+    }
+  );
+
+  // fetch contract read-only data
+  useEffect(() => {
+    let mounted = true;
+    async function fetchContract() {
+      if (!poll || !poll.marketId) return;
+      setContractLoading(true);
+      try {
+        const marketId = Number(poll.marketId);
+        const [poolRes, outcomeRes, yesSupplyRes, noSupplyRes] =
+          await Promise.all([
+            getPool(marketId),
+            getOutcome(marketId),
+            getYesSupply(marketId),
+            getNoSupply(marketId),
+          ]);
+
+        // get per-user balances if user present
+        let yesBal = 0;
+        let noBal = 0;
+        let rewardClaimed = false;
+        if (user) {
+          try {
+            yesBal = await getYesBalance(
+              marketId,
+              user.walletAddress || user.address || user._id
+            );
+            noBal = await getNoBalance(
+              marketId,
+              user.walletAddress || user.address || user._id
+            );
+            rewardClaimed = await getRewardClaimed(
+              marketId,
+              user.walletAddress || user.address || user._id
+            );
+          } catch (e) {
+            // ignore per-user failures
+          }
+        }
+
+        // map results (contract read helpers return CV-like objects; handle numbers or objects)
+        const mapNumeric = (r) => {
+          if (r === undefined || r === null) return 0;
+          if (typeof r === "number") return r;
+          if (r.value && typeof r.value === "number") return r.value;
+          if (r.value && r.value.toString) return Number(r.value.toString());
+          return Number(r.toString?.() || 0);
+        };
+
+        const pool = mapNumeric(poolRes);
+        const yesSupply = mapNumeric(yesSupplyRes);
+        const noSupply = mapNumeric(noSupplyRes);
+        const outcome = (outcomeRes && outcomeRes.value) || outcomeRes || "";
+
+        if (mounted) {
+          setContractData({
+            outcome,
+            optionPool: {
+              yes: pool * (yesSupply / (yesSupply + noSupply || 1)),
+              no: pool * (noSupply / (yesSupply + noSupply || 1)),
+            },
+            optionBalance: { yes: mapNumeric(yesBal), no: mapNumeric(noBal) },
+            pool,
+            rewardClaimed: !!rewardClaimed,
+            yesSupply,
+            noSupply,
+          });
+        }
+      } catch (err) {
+        console.warn("Failed to read contract data", err);
+      } finally {
+        if (mounted) setContractLoading(false);
+      }
+    }
+    fetchContract();
+    const interval = setInterval(fetchContract, 15000);
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+    };
+  }, [poll, user]);
+
+  // keep liveTrades in sync when server data changes
+  useEffect(() => {
+    setLiveTrades(data?.tradeHistory || []);
+  }, [data?.tradeHistory]);
 
   // user's trades on this poll
   const userTrades = useMemo(() => {
@@ -86,12 +228,10 @@ const PollDetail = () => {
   // determine if user has winning trade by comparing DB trades and contract outcome
   const didUserWin = useMemo(() => {
     if (!userTrades.length) return false;
-    // try to map contract outcome string to an option index
     const outcomeStr = (contractData?.outcome || "").toString().toLowerCase();
     const contractIdx = poll?.options?.findIndex((o) =>
       o.text?.toLowerCase().includes(outcomeStr)
     );
-    // if poll is resolved and winningOption exists, prefer that
     const winningIdx =
       typeof poll?.winningOption === "number"
         ? poll.winningOption
@@ -99,11 +239,6 @@ const PollDetail = () => {
     if (typeof winningIdx !== "number" || winningIdx < 0) return false;
     return userTrades.some((t) => t.optionIndex === winningIdx);
   }, [userTrades, poll, contractData]);
-
-  // keep liveTrades in sync when server data changes (fix: trades disappear after refresh)
-  useEffect(() => {
-    setLiveTrades(data?.tradeHistory || []);
-  }, [data?.tradeHistory]);
 
   const isEnded = useMemo(() => {
     if (!poll) return false;
@@ -122,97 +257,87 @@ const PollDetail = () => {
       .catch(() => setClaimed(false));
   }, [user, poll]);
 
-  // Log contract data and backend-derived trade info for debugging/inspection
-  useEffect(() => {
-    console.groupCollapsed(`Poll ${poll?._id} - contract vs backend`);
-    console.log("contractData:", contractData);
-    console.log("poll (backend):", poll);
-    console.log("userTrades:", userTrades);
-    console.log("liveTrades (sample):", liveTrades.slice(0, 10));
-    console.groupEnd();
-  }, [contractData, poll, userTrades, liveTrades]);
-
-  const redeemMutation = useMutation(
+  // trade mutation now supports on-chain market execution for 'market' orderType
+  const tradeMutation = useMutation(
     async () => {
-      const res = await axios.post(`${BACKEND_URL}/api/trades/redeem`, {
-        pollId: poll._id,
-      });
+      const payload = {
+        pollId: id,
+        type: side,
+        optionIndex: selectedOptionIndex,
+        amount: Number(amount),
+        price: Number(price),
+        orderType,
+      };
+
+      if (orderType === "market") {
+        if (!poll?.marketId)
+          throw new Error("Missing marketId for on-chain execution");
+        const marketId = Number(poll.marketId);
+        const isYes = selectedOptionIndex === 0;
+
+        try {
+          let txResult = null;
+          if (side === "buy") {
+            if (useAutoCap) {
+              const targetCap = Math.ceil(Number(amount) * 1.1) || 1;
+              const maxCost = Math.ceil(Number(amount) * 1.2) || 1;
+              txResult = isYes
+                ? await buyYesAuto(marketId, Number(amount), targetCap, maxCost)
+                : await buyNoAuto(marketId, Number(amount), targetCap, maxCost);
+            } else {
+              txResult = isYes
+                ? await buyYes(marketId, Number(amount))
+                : await buyNo(marketId, Number(amount));
+            }
+          } else {
+            if (useAutoCap) {
+              const targetCap = Math.ceil(Number(amount) * 1.1) || 1;
+              const maxCost = Math.ceil(Number(amount) * 1.2) || 1;
+              txResult = isYes
+                ? await sellYesAuto(
+                    marketId,
+                    Number(amount),
+                    targetCap,
+                    maxCost
+                  )
+                : await sellNoAuto(
+                    marketId,
+                    Number(amount),
+                    targetCap,
+                    maxCost
+                  );
+            } else {
+              txResult = isYes
+                ? await sellYes(marketId, Number(amount))
+                : await sellNo(marketId, Number(amount));
+            }
+          }
+
+          if (txResult)
+            payload.txId = txResult?.txId || txResult?.tx_id || null;
+        } catch (err) {
+          console.error("On-chain trade failed", err);
+          throw err;
+        }
+      }
+
+      const res = await axios.post(`${BACKEND_URL}/api/trades`, payload);
       return res.data;
     },
     {
-      onSuccess: (data) => {
-        setClaimed(true);
-        // Update user in auth context by invalidating /me or refetching
-        queryClient.invalidateQueries(["me"]);
-        toast.success(`Claimed $${data.amount}`);
+      onSuccess: () => {
+        queryClient.invalidateQueries(["poll-detail", id]);
+        queryClient.invalidateQueries(["trades", id]);
+        setAmount("");
+        toast.success("Trade placed");
       },
       onError: (err) => {
-        toast.error(err?.response?.data?.message || "Redeem failed");
+        toast.error(
+          err?.response?.data?.message || err.message || "Trade failed"
+        );
       },
     }
   );
-
-  const timeRemaining = useMemo(() => {
-    if (!poll) return "";
-    const now = new Date();
-    const end = new Date(poll.endDate);
-    const diff = end - now;
-    if (diff <= 0) return "Ended";
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-    if (days > 0) return `${days}d ${hours}h`;
-    if (hours > 0) return `${hours}h ${minutes}m`;
-    return `${minutes}m`;
-  }, [poll]);
-
-  useEffect(() => {
-    if (!id) return;
-    const url = process.env.REACT_APP_SOCKET_URL || "http://localhost:5000";
-    const socket = io(url, { transports: ["websocket"] });
-    socket.emit("join-poll", id);
-    socket.on("trade-updated", (payload) => {
-      if (payload?.pollId === id) {
-        setLiveOrderBook(payload.orderBook || null);
-        // Optimistically prepend new trade if present
-        if (payload.trade) {
-          setLiveTrades((prev) => [payload.trade, ...prev].slice(0, 50));
-        } else {
-          // fallback: refetch
-          queryClient.invalidateQueries(["poll-detail", id]);
-        }
-      }
-    });
-    socket.on("poll-updated", (payload) => {
-      if (payload?.pollId === id && payload.poll) {
-        // Update local poll fields by invalidating query
-        queryClient.setQueryData(["poll-detail", id], (old) => ({
-          ...(old || {}),
-          poll: payload.poll,
-        }));
-      }
-    });
-    socket.on("poll-resolved", (payload) => {
-      if (payload?.pollId === id) {
-        queryClient.setQueryData(["poll-detail", id], (old) => ({
-          ...(old || {}),
-          poll: {
-            ...(old?.poll || {}),
-            isResolved: true,
-            winningOption: payload.winningOption,
-          },
-        }));
-        const opt =
-          (data?.poll?.options || [])[payload.winningOption]?.text ||
-          `Option ${payload.winningOption}`;
-        toast.success(`Market resolved. Winner: ${opt}`);
-      }
-    });
-    return () => {
-      socket.emit("leave-poll", id);
-      socket.disconnect();
-    };
-  }, [id, queryClient, data?.poll?.options]);
 
   if (isLoading) {
     return (
@@ -281,7 +406,12 @@ const PollDetail = () => {
           {poll && poll.options && poll.options.length > 0 && (
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-soft p-4">
               <div className="text-sm text-gray-700 dark:text-gray-300 mb-2">
-                Market Progress
+                <span>Market Progress</span>
+                {contractLoading && (
+                  <span className="ml-2 text-xs text-gray-500">
+                    Reading on-chain...
+                  </span>
+                )}
               </div>
               <div className="w-full h-72">
                 <ResponsiveContainer width="100%" height="100%">
@@ -422,26 +552,52 @@ const PollDetail = () => {
                   <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
                     Trade
                   </h3>
-                  <div className="inline-flex rounded-md overflow-hidden border border-gray-200 dark:border-gray-700">
+                  <div className="flex items-center gap-3">
+                    <div className="inline-flex rounded-md overflow-hidden border border-gray-200 dark:border-gray-700">
+                      <button
+                        onClick={() => setSide("buy")}
+                        className={`px-3 py-1 text-sm ${
+                          side === "buy"
+                            ? "bg-emerald-600 text-white"
+                            : "bg-transparent text-gray-700 dark:text-gray-300"
+                        }`}
+                      >
+                        Buy
+                      </button>
+                      <button
+                        onClick={() => setSide("sell")}
+                        className={`px-3 py-1 text-sm ${
+                          side === "sell"
+                            ? "bg-red-600 text-white"
+                            : "bg-transparent text-gray-700 dark:text-gray-300"
+                        }`}
+                      >
+                        Sell
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Order type toggle */}
+                  <div className="ml-3 inline-flex rounded-md overflow-hidden border border-gray-200 dark:border-gray-700">
                     <button
-                      onClick={() => setSide("buy")}
-                      className={`px-3 py-1 text-sm ${
-                        side === "buy"
-                          ? "bg-emerald-600 text-white"
+                      onClick={() => setOrderType("market")}
+                      className={`px-2 py-1 text-xs ${
+                        orderType === "market"
+                          ? "bg-gray-900 text-white"
                           : "bg-transparent text-gray-700 dark:text-gray-300"
                       }`}
                     >
-                      Buy
+                      Market
                     </button>
                     <button
-                      onClick={() => setSide("sell")}
-                      className={`px-3 py-1 text-sm ${
-                        side === "sell"
-                          ? "bg-red-600 text-white"
+                      onClick={() => setOrderType("limit")}
+                      className={`px-2 py-1 text-xs ${
+                        orderType === "limit"
+                          ? "bg-gray-900 text-white"
                           : "bg-transparent text-gray-700 dark:text-gray-300"
                       }`}
                     >
-                      Sell
+                      Limit
                     </button>
                   </div>
                 </div>
@@ -485,18 +641,27 @@ const PollDetail = () => {
                   </div>
                   <div>
                     <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1">
-                      Price (0-1)
+                      Price
                     </label>
-                    <input
-                      type="number"
-                      min="0"
-                      max="1"
-                      step="0.01"
-                      value={price}
-                      onChange={(e) => setPrice(e.target.value)}
-                      placeholder="0.50"
-                      className="input w-full"
-                    />
+                    {orderType === "market" ? (
+                      <input
+                        type="text"
+                        readOnly
+                        value={marketPrice}
+                        className="input w-full bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                      />
+                    ) : (
+                      <input
+                        type="number"
+                        min="0"
+                        max="1"
+                        step="0.01"
+                        value={price}
+                        onChange={(e) => setPrice(e.target.value)}
+                        placeholder="0.00"
+                        className="input w-full"
+                      />
+                    )}
                   </div>
                   <button
                     onClick={() => tradeMutation.mutate()}
@@ -693,6 +858,32 @@ const PollDetail = () => {
                   ))}
                 </div>
 
+                {/* Order type toggle for large screen panel */}
+                <div className="flex justify-end mb-4">
+                  <div className="inline-flex rounded-md overflow-hidden border border-gray-200 dark:border-gray-700">
+                    <button
+                      onClick={() => setOrderType("market")}
+                      className={`px-2 py-1 text-xs ${
+                        orderType === "market"
+                          ? "bg-gray-900 text-white"
+                          : "bg-transparent text-gray-700 dark:text-gray-300"
+                      }`}
+                    >
+                      Market
+                    </button>
+                    <button
+                      onClick={() => setOrderType("limit")}
+                      className={`px-2 py-1 text-xs ${
+                        orderType === "limit"
+                          ? "bg-gray-900 text-white"
+                          : "bg-transparent text-gray-700 dark:text-gray-300"
+                      }`}
+                    >
+                      Limit
+                    </button>
+                  </div>
+                </div>
+
                 {/* Inputs */}
                 <div className="space-y-4">
                   <div>
@@ -711,18 +902,27 @@ const PollDetail = () => {
                   </div>
                   <div>
                     <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1">
-                      Price (0-1)
+                      Price
                     </label>
-                    <input
-                      type="number"
-                      min="0"
-                      max="1"
-                      step="0.01"
-                      value={price}
-                      onChange={(e) => setPrice(e.target.value)}
-                      placeholder="0.50"
-                      className="input w-full"
-                    />
+                    {orderType === "market" ? (
+                      <input
+                        type="text"
+                        readOnly
+                        value={marketPrice}
+                        className="input w-full bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                      />
+                    ) : (
+                      <input
+                        type="number"
+                        min="0"
+                        max="1"
+                        step="0.01"
+                        value={price}
+                        onChange={(e) => setPrice(e.target.value)}
+                        placeholder="0.00"
+                        className="input w-full"
+                      />
+                    )}
                   </div>
                   <button
                     onClick={() => tradeMutation.mutate()}

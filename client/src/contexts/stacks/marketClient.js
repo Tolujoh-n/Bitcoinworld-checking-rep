@@ -123,6 +123,22 @@ export async function buyNo(marketId, amount) {
   });
 }
 
+// Sell YES tokens
+export async function sellYes(marketId, amount) {
+  return contractCall({
+    functionName: "sell-yes",
+    functionArgs: [uintCV(marketId), uintCV(amount)],
+  });
+}
+
+// Sell NO tokens
+export async function sellNo(marketId, amount) {
+  return contractCall({
+    functionName: "sell-no",
+    functionArgs: [uintCV(marketId), uintCV(amount)],
+  });
+}
+
 // Buy YES tokens with auto-cap
 export async function buyYesAuto(marketId, amount, targetCap, maxCost) {
   return contractCall({
@@ -140,6 +156,32 @@ export async function buyYesAuto(marketId, amount, targetCap, maxCost) {
 export async function buyNoAuto(marketId, amount, targetCap, maxCost) {
   return contractCall({
     functionName: "buy-no-auto",
+    functionArgs: [
+      uintCV(marketId),
+      uintCV(amount),
+      uintCV(targetCap),
+      uintCV(maxCost),
+    ],
+  });
+}
+
+// Sell YES tokens with auto-cap
+export async function sellYesAuto(marketId, amount, targetCap, maxCost) {
+  return contractCall({
+    functionName: "sell-yes-auto",
+    functionArgs: [
+      uintCV(marketId),
+      uintCV(amount),
+      uintCV(targetCap),
+      uintCV(maxCost),
+    ],
+  });
+}
+
+// Sell NO tokens with auto-cap
+export async function sellNoAuto(marketId, amount, targetCap, maxCost) {
+  return contractCall({
+    functionName: "sell-no-auto",
     functionArgs: [
       uintCV(marketId),
       uintCV(amount),
@@ -323,6 +365,14 @@ export async function getCap(marketId, principal) {
 export async function getSpent(marketId, principal) {
   return contractRead({
     functionName: "get-spent",
+    functionArgs: [uintCV(marketId), principalCV(principal)],
+  });
+}
+
+// get reward claimed true/false
+export async function getRewardClaimed(marketId, principal) {
+  return contractRead({
+    functionName: "get-reward-claimed",
     functionArgs: [uintCV(marketId), principalCV(principal)],
   });
 }
