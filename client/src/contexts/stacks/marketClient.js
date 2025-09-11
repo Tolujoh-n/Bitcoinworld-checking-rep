@@ -3,6 +3,7 @@ import {
   principalCV,
   cvToHex,
   stringUtf8CV,
+  PostConditionMode,
   fetchCallReadOnlyFunction,
 } from "@stacks/transactions";
 import { openContractCall } from "@stacks/connect";
@@ -53,6 +54,7 @@ async function contractCall({ functionName, functionArgs = [] }) {
         functionName,
         functionArgs,
         appDetails: APP_DETAILS,
+        postConditionMode: PostConditionMode.Allow,
         onFinish: (data) => {
           console.log(`✅ ${functionName} tx:`, data);
           resolve(data);
