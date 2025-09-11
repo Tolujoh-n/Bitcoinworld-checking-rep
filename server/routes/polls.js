@@ -344,6 +344,7 @@ router.post("/", auth, async (req, res) => {
       countryFlag,
       candidates,
       location,
+      marketId,
     } = req.body;
 
     // Validate required fields
@@ -388,6 +389,8 @@ router.post("/", auth, async (req, res) => {
       tags: tags || [],
       image: image || "",
       createdBy: req.user._id,
+      // include optional blockchain market id if provided
+      marketId: marketId || null,
     };
 
     // Add category-specific data
@@ -450,9 +453,11 @@ router.put("/:id", auth, async (req, res) => {
 
     // Only allow updates if poll is not resolved
     if (poll.isResolved) {
-      return res.status(400).json({ message: "Cannot update resolved poll" });
+      return res.status(400).json({ message: "Cannot update a resolved poll" });
     }
 
+    // If marketId is provided in the update, allow it to be set/updated.
+    // Uniqueness is enforced by the schema index; duplicate values will throw.
     const updatedPoll = await Poll.findByIdAndUpdate(req.params.id, req.body, {
       new: true,
       runValidators: true,
