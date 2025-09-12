@@ -73,7 +73,6 @@ const PollDetail = () => {
     optionPool: { yes: 0, no: 0 },
     optionBalance: { yes: 0, no: 0 },
     pool: 0,
-    rewardClaimed: false,
     yesSupply: 0,
     noSupply: 0,
   });
@@ -211,13 +210,11 @@ const PollDetail = () => {
         // get per-user balances if user has a principal/wallet address
         let yesBal = 0;
         let noBal = 0;
-        let rewardClaimed = false;
         const principal = user?.walletAddress || user?.address || null;
         if (principal) {
           try {
             yesBal = await getYesBalance(marketId, principal);
             noBal = await getNoBalance(marketId, principal);
-            rewardClaimed = await getRewardClaimed(marketId, principal);
           } catch (e) {
             // log debug info but don't fail the whole fetch
             console.warn("Per-user contract read failed", {
@@ -251,7 +248,7 @@ const PollDetail = () => {
             },
             optionBalance: { yes: mapNumeric(yesBal), no: mapNumeric(noBal) },
             pool,
-            rewardClaimed: !!rewardClaimed,
+            rewardClaimed: !!poll?.rewardClaimed, // from backend, not contract
             yesSupply,
             noSupply,
           });
@@ -770,7 +767,6 @@ const PollDetail = () => {
                       <input
                         type="number"
                         min="0"
-                        max="1"
                         step="0.01"
                         value={price}
                         onChange={(e) => setPrice(e.target.value)}
@@ -1031,7 +1027,6 @@ const PollDetail = () => {
                       <input
                         type="number"
                         min="0"
-                        max="1"
                         step="0.01"
                         value={price}
                         onChange={(e) => setPrice(e.target.value)}
