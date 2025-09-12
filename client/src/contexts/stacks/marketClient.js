@@ -416,6 +416,22 @@ export async function getSpent(marketId, principal) {
   });
 }
 
+// get quote amount for a yes
+export async function getQuoteYes(marketId, amount) {
+  return contractRead({
+    functionName: "quote-buy-yes",
+    functionArgs: [uintCV(marketId), uintCV(amount)],
+  });
+}
+
+// get quote amount for a No
+export async function getQuoteNo(marketId, amount) {
+  return contractRead({
+    functionName: "quote-buy-no",
+    functionArgs: [uintCV(marketId), uintCV(amount)],
+  });
+}
+
 // get reward claimed true/false
 export async function getRewardClaimed(marketId, principal) {
   return contractRead({

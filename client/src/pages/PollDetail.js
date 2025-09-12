@@ -26,6 +26,8 @@ import {
   getNoSupply,
   getYesBalance,
   getNoBalance,
+  getQuoteYes,
+  getQuoteNo,
   getRewardClaimed,
   buyYes,
   buyNo,
@@ -325,13 +327,14 @@ const PollDetail = () => {
         orderType,
       };
 
-      // determine option text (backend stores option text like 'yes'/'no')
+      // --- Step 0: detect if this is YES/NO
       const selectedOptionText = (
         poll?.options?.[selectedOptionIndex]?.text || ""
       )
         .toString()
         .toLowerCase()
         .trim();
+
       const isYes =
         selectedOptionText.includes("yes") || selectedOptionIndex === 0;
 
@@ -341,7 +344,38 @@ const PollDetail = () => {
       }
       const marketId = Number(poll.marketId);
 
-      // Call the on-chain function and wait for wallet response (txId), then poll for confirmation
+      // --- Step 1: get quote value first ---
+      let q = null;
+      try {
+        q = isYes
+          ? await getQuoteYes(marketId, Number(amount))
+          : await getQuoteNo(marketId, Number(amount));
+
+        console.log("Raw quote response:", q);
+
+        // Decode clarity data
+        const quoteData = q?.value?.data || null;
+        if (quoteData) {
+          const decoded = {
+            cost: Number(quoteData.cost?.value || 0),
+            feeProtocol: Number(quoteData.feeProtocol?.value || 0),
+            feeLP: Number(quoteData.feeLP?.value || 0),
+            total: Number(quoteData.total?.value || 0),
+            drip: Number(quoteData.drip?.value || 0),
+            brc20: Number(quoteData.brc20?.value || 0),
+            team: Number(quoteData.team?.value || 0),
+          };
+
+          console.log(
+            `📊 Quote breakdown for ${isYes ? "YES" : "NO"}:`,
+            decoded
+          );
+        }
+      } catch (err) {
+        console.error("❌ Failed to fetch quote:", err);
+      }
+
+      // --- Step 2: execute order ---
       let txResult = null;
       try {
         if (orderType === "market") {
@@ -356,9 +390,24 @@ const PollDetail = () => {
           }
         } else {
           const amt = Math.ceil(Number(amount) || 0);
-          const p = Number(price) || 0;
-          const targetCap = Math.max(1, amt);
-          const maxCost = Math.max(1, Math.ceil(amt * (p || 1)));
+
+          // ✅ Properly handle BigInt values from quote
+          const quoteTuple = q?.value?.value; // tuple layer
+          const totalBigInt = quoteTuple?.total?.value ?? 0n;
+
+          console.log("🔹 Raw total from quote (BigInt):", totalBigInt);
+
+          // Do BigInt math
+          const targetCapBigInt = totalBigInt * 10n;
+          const maxCostBigInt = (totalBigInt * 110n) / 100n;
+
+          // Convert to Number
+          const total = Number(totalBigInt);
+          const targetCap = Number(targetCapBigInt);
+          const maxCost = Number(maxCostBigInt);
+
+          console.log("📊 Calculated values:", { total, targetCap, maxCost });
+
           if (side === "buy") {
             txResult = isYes
               ? await buyYesAuto(marketId, amt, targetCap, maxCost)
@@ -370,28 +419,24 @@ const PollDetail = () => {
           }
         }
       } catch (err) {
-        // wallet popup cancelled or tx rejected
-        console.error("On-chain call failed/was cancelled", err);
+        console.error("❌ On-chain call failed/was cancelled", err);
         throw err;
       }
 
+      // --- Step 3: confirm tx ---
       const txId = txResult?.txId || txResult?.tx_id || txResult?.txid || null;
-      if (!txId) {
-        // nothing to poll — treat as failure
-        throw new Error("No txId returned from wallet");
-      }
+      if (!txId) throw new Error("No txId returned from wallet");
 
-      // Wait for confirmation via pollTx (uses backend proxy)
       try {
         const confirmed = await pollTx(txId, 5000, 60);
-        console.log("Transaction confirmed on-chain:", confirmed);
+        console.log("✅ Transaction confirmed on-chain:", confirmed);
         payload.txId = txId;
       } catch (err) {
-        console.error("Transaction failed to confirm:", err);
+        console.error("❌ Transaction failed to confirm:", err);
         throw err;
       }
 
-      // Only after on-chain success post trade to backend
+      // --- Step 4: post trade to backend ---
       const res = await axios.post(`${BACKEND_URL}/api/trades`, payload);
       return res.data;
     },
