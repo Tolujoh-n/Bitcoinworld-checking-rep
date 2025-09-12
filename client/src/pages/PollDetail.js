@@ -80,13 +80,22 @@ const PollDetail = () => {
   // logging guard
   const _logged = useRef({ contract: false, backend: false });
 
-  // compute market price from on-chain pools (0-1)
+  // compute market price from on-chain pools
   const marketPrice = useMemo(() => {
-    if (!contractData || !contractData.pool) return 0.5;
+    if (!contractData) return 0.5;
+
+    // If there’s no pool yet (first trade), use a safe default
+    if (!contractData.pool || contractData.pool === 0) {
+      return 0.5; // fallback: starting price (same as Auto functions)
+    }
+
     // map selected option to yes/no pools for binary markets
     const idx = selectedOptionIndex === 0 ? "yes" : "no";
     const optPool = contractData.optionPool?.[idx] ?? 0;
-    const price = contractData.pool ? optPool / contractData.pool : 0.5;
+
+    const price = optPool / contractData.pool;
+    if (isNaN(price) || !isFinite(price)) return 0.5;
+
     return Number(price.toFixed(2));
   }, [contractData, selectedOptionIndex]);
 
@@ -312,7 +321,7 @@ const PollDetail = () => {
       .catch(() => setClaimed(false));
   }, [user, poll]);
 
-  // trade mutation now supports on-chain market execution for 'market' orderType
+  // trade mutation now supports on-chain market execution for 'market' and 'limit' orderType
   const tradeMutation = useMutation(
     async () => {
       const payload = {
@@ -324,7 +333,7 @@ const PollDetail = () => {
         orderType,
       };
 
-      // --- Step 0: detect if this is YES/NO
+      // --- Step 0: detect if this is YES/NO ---
       const selectedOptionText = (
         poll?.options?.[selectedOptionIndex]?.text || ""
       )
@@ -341,8 +350,11 @@ const PollDetail = () => {
       }
       const marketId = Number(poll.marketId);
 
-      // --- Step 1: get quote value first ---
+      // --- Step 1: get quote value ---
       let q = null;
+      let total = 0,
+        targetCap = 0,
+        maxCost = 0;
       try {
         q = isYes
           ? await getQuoteYes(marketId, Number(amount))
@@ -350,23 +362,18 @@ const PollDetail = () => {
 
         console.log("Raw quote response:", q);
 
-        // Decode clarity data
-        const quoteData = q?.value?.data || null;
-        if (quoteData) {
-          const decoded = {
-            cost: Number(quoteData.cost?.value || 0),
-            feeProtocol: Number(quoteData.feeProtocol?.value || 0),
-            feeLP: Number(quoteData.feeLP?.value || 0),
-            total: Number(quoteData.total?.value || 0),
-            drip: Number(quoteData.drip?.value || 0),
-            brc20: Number(quoteData.brc20?.value || 0),
-            team: Number(quoteData.team?.value || 0),
-          };
+        const quoteTuple = q?.value?.value || null;
+        if (quoteTuple) {
+          const totalBigInt = quoteTuple?.total?.value ?? 0n;
+          total = Number(totalBigInt);
+          targetCap = Number(totalBigInt * 10n);
+          maxCost = Number((totalBigInt * 110n) / 100n);
 
-          console.log(
-            `📊 Quote breakdown for ${isYes ? "YES" : "NO"}:`,
-            decoded
-          );
+          console.log("📊 Quote breakdown:", {
+            total,
+            targetCap,
+            maxCost,
+          });
         }
       } catch (err) {
         console.error("❌ Failed to fetch quote:", err);
@@ -376,32 +383,34 @@ const PollDetail = () => {
       let txResult = null;
       try {
         if (orderType === "market") {
-          if (side === "buy") {
-            txResult = isYes
-              ? await buyYes(marketId, Number(amount))
-              : await buyNo(marketId, Number(amount));
-          } else {
-            txResult = isYes
-              ? await sellYes(marketId, Number(amount))
-              : await sellNo(marketId, Number(amount));
-          }
-        } else {
+          // ✅ Check if this is the very first trade
+          const isFirstTrade = !liveTrades || liveTrades.length === 0;
           const amt = Math.ceil(Number(amount) || 0);
 
-          // ✅ Properly handle BigInt values from quote
-          const quoteTuple = q?.value?.value; // tuple layer
-          const totalBigInt = quoteTuple?.total?.value ?? 0n;
-
-          console.log("🔹 Raw total from quote (BigInt):", totalBigInt);
-
-          // Do BigInt math
-          const targetCapBigInt = totalBigInt * 10n;
-          const maxCostBigInt = (totalBigInt * 110n) / 100n;
-
-          // Convert to Number
-          const total = Number(totalBigInt);
-          const targetCap = Number(targetCapBigInt);
-          const maxCost = Number(maxCostBigInt);
+          if (side === "buy") {
+            if (isYes) {
+              txResult = isFirstTrade
+                ? await buyYesAuto(marketId, amt, targetCap, maxCost)
+                : await buyYes(marketId, amt);
+            } else {
+              txResult = isFirstTrade
+                ? await buyNoAuto(marketId, amt, targetCap, maxCost)
+                : await buyNo(marketId, amt);
+            }
+          } else {
+            if (isYes) {
+              txResult = isFirstTrade
+                ? await sellYesAuto(marketId, amt, targetCap, maxCost)
+                : await sellYes(marketId, amt);
+            } else {
+              txResult = isFirstTrade
+                ? await sellNoAuto(marketId, amt, targetCap, maxCost)
+                : await sellNo(marketId, amt);
+            }
+          }
+        } else {
+          // --- Limit order branch ---
+          const amt = Math.ceil(Number(amount) || 0);
 
           console.log("📊 Calculated values:", { total, targetCap, maxCost });
 
