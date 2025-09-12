@@ -3,6 +3,7 @@ import {
   principalCV,
   stringUtf8CV,
   stringAsciiCV,
+  fetchCallReadOnlyFunction,
   PostConditionMode,
 } from "@stacks/transactions";
 import { openContractCall } from "@stacks/connect";
@@ -106,56 +107,29 @@ async function contractCall({ functionName, functionArgs = [] }) {
 }
 
 async function contractRead({ functionName, functionArgs = [] }) {
-  // For read-only calls we should not force wallet authentication (this can
-  // trigger connect popups repeatedly while polling). Use the currently
-  // connected wallet address if present, otherwise omit the senderAddress.
-  const senderAddress = getWalletAddress();
+  const senderAddress = getWalletAddress(); // optional
+
   try {
-    // Serialize Clarity values into plain JSON that the backend proxy can
-    // forward to the Hiro API. We expect functionArgs to be clarity CV objects
-    // created using helpers like uintCV(), principalCV(), stringUtf8CV().
-    const serializeArg = (a) => {
-      if (a == null) return null;
-      try {
-        if (typeof a === "object" && a.type) {
-          let v = a.value;
-          if (typeof v === "bigint") v = v.toString();
-          if (v && typeof v === "object" && typeof v.toString === "function")
-            v = v.toString();
-          return { type: a.type, value: v };
-        }
-        return { type: typeof a, value: String(a) };
-      } catch (e) {
-        return { type: typeof a, value: String(a) };
-      }
-    };
-
-    const serializedArgs = (functionArgs || []).map(serializeArg);
-
-    // Call backend proxy which forwards the read-only call to Hiro to avoid CORS
-    const res = await axios.post(`${BACKEND_URL}/api/stacks/call-read`, {
+    const result = await fetchCallReadOnlyFunction({
       contractAddress: CONTRACT_ADDRESS,
       contractName: CONTRACT_NAME,
       functionName,
-      functionArgs: serializedArgs,
-      senderAddress: senderAddress || undefined,
+      functionArgs,
+      network: "testnet",
+      senderAddress,
     });
 
-    const result = res.data;
     if (MARKET_CLIENT_DEBUG && !_loggedReadFunctions.has(functionName)) {
-      console.log(`📖 ${functionName} result (proxy):`, result);
+      console.log(`📖 ${functionName} result:`, result);
       _loggedReadFunctions.add(functionName);
     }
+
     return result;
   } catch (err) {
-    // Log structured error for easier debugging
-    console.warn(`❌ Error reading ${functionName} (proxy):`, {
+    console.warn(`❌ Error reading ${functionName}:`, {
       message: err?.message || err,
       functionName,
-      functionArgs: (functionArgs || []).map((a) => ({
-        type: a?.type,
-        value: a?.value,
-      })),
+      functionArgs,
       senderAddress,
     });
     throw err;

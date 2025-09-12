@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { useQuery, useMutation, useQueryClient } from "react-query";
@@ -20,13 +20,13 @@ import {
 import CommentsSection from "../components/comments/CommentsSection";
 import toast from "react-hot-toast";
 import {
-  // getPool,
-  // getOutcome,
-  // getYesSupply,
-  // getNoSupply,
-  // getYesBalance,
-  // getNoBalance,
-  // getRewardClaimed,
+  getPool,
+  getOutcome,
+  getYesSupply,
+  getNoSupply,
+  getYesBalance,
+  getNoBalance,
+  getRewardClaimed,
   buyYes,
   buyNo,
   sellYes,
@@ -66,7 +66,7 @@ const PollDetail = () => {
   const [claimed, setClaimed] = useState(false);
 
   // dynamic contract data
-  const [contractData] = useState({
+  const [contractData, setContractData] = useState({
     outcome: "",
     optionPool: { yes: 0, no: 0 },
     optionBalance: { yes: 0, no: 0 },
@@ -75,7 +75,9 @@ const PollDetail = () => {
     yesSupply: 0,
     noSupply: 0,
   });
-  const [contractLoading] = useState(false);
+  const [contractLoading, setContractLoading] = useState(false);
+  // logging guard
+  const _logged = useRef({ contract: false, backend: false });
 
   // compute market price from on-chain pools (0-1)
   const marketPrice = useMemo(() => {
@@ -161,110 +163,110 @@ const PollDetail = () => {
   // debug logs: show contract data and backend poll response only once
   // logging guard (kept for potential debug use) - currently unused
 
-  // useEffect(() => {
-  //   // log backend data once when it first arrives
-  //   if (data && !_logged.current.backend) {
-  //     console.log("backend data:", data);
-  //     _logged.current.backend = true;
-  //   }
-  //   // log contract data once when pool or outcome becomes available
-  //   if (
-  //     contractData &&
-  //     !_logged.current.contract &&
-  //     (contractData.pool ||
-  //       contractData.outcome ||
-  //       contractData.yesSupply ||
-  //       contractData.noSupply)
-  //   ) {
-  //     console.log("contractData:", contractData);
-  //     _logged.current.contract = true;
-  //   }
-  // }, [data, contractData]);
+  useEffect(() => {
+    // log backend data once when it first arrives
+    if (data && !_logged.current.backend) {
+      console.log("backend data:", data);
+      _logged.current.backend = true;
+    }
+    // log contract data once when pool or outcome becomes available
+    if (
+      contractData &&
+      !_logged.current.contract &&
+      (contractData.pool ||
+        contractData.outcome ||
+        contractData.yesSupply ||
+        contractData.noSupply)
+    ) {
+      console.log("contractData:", contractData);
+      _logged.current.contract = true;
+    }
+  }, [data, contractData]);
 
   // fetch contract read-only data
-  // useEffect(() => {
-  //   let mounted = true;
-  //   async function fetchContract() {
-  //     if (!poll || !poll.marketId) return;
-  //     const marketId = Number(poll.marketId);
-  //     if (!Number.isFinite(marketId) || Number.isNaN(marketId)) {
-  //       console.warn(
-  //         "Invalid marketId, skipping contract reads:",
-  //         poll.marketId
-  //       );
-  //       return;
-  //     }
-  //     setContractLoading(true);
-  //     try {
-  //       const [poolRes, outcomeRes, yesSupplyRes, noSupplyRes] =
-  //         await Promise.all([
-  //           getPool(marketId),
-  //           getOutcome(marketId),
-  //           getYesSupply(marketId),
-  //           getNoSupply(marketId),
-  //         ]);
+  useEffect(() => {
+    let mounted = true;
+    async function fetchContract() {
+      if (!poll || !poll.marketId) return;
+      const marketId = Number(poll.marketId);
+      if (!Number.isFinite(marketId) || Number.isNaN(marketId)) {
+        console.warn(
+          "Invalid marketId, skipping contract reads:",
+          poll.marketId
+        );
+        return;
+      }
+      setContractLoading(true);
+      try {
+        const [poolRes, outcomeRes, yesSupplyRes, noSupplyRes] =
+          await Promise.all([
+            getPool(marketId),
+            getOutcome(marketId),
+            getYesSupply(marketId),
+            getNoSupply(marketId),
+          ]);
 
-  //       // get per-user balances if user has a principal/wallet address
-  //       let yesBal = 0;
-  //       let noBal = 0;
-  //       let rewardClaimed = false;
-  //       const principal = user?.walletAddress || user?.address || null;
-  //       if (principal) {
-  //         try {
-  //           yesBal = await getYesBalance(marketId, principal);
-  //           noBal = await getNoBalance(marketId, principal);
-  //           rewardClaimed = await getRewardClaimed(marketId, principal);
-  //         } catch (e) {
-  //           // log debug info but don't fail the whole fetch
-  //           console.warn("Per-user contract read failed", {
-  //             marketId,
-  //             principal,
-  //             err: e?.message || e,
-  //           });
-  //         }
-  //       }
+        // get per-user balances if user has a principal/wallet address
+        let yesBal = 0;
+        let noBal = 0;
+        let rewardClaimed = false;
+        const principal = user?.walletAddress || user?.address || null;
+        if (principal) {
+          try {
+            yesBal = await getYesBalance(marketId, principal);
+            noBal = await getNoBalance(marketId, principal);
+            rewardClaimed = await getRewardClaimed(marketId, principal);
+          } catch (e) {
+            // log debug info but don't fail the whole fetch
+            console.warn("Per-user contract read failed", {
+              marketId,
+              principal,
+              err: e?.message || e,
+            });
+          }
+        }
 
-  //       // map results (contract read helpers return CV-like objects; handle numbers or objects)
-  //       const mapNumeric = (r) => {
-  //         if (r === undefined || r === null) return 0;
-  //         if (typeof r === "number") return r;
-  //         if (r.value && typeof r.value === "number") return r.value;
-  //         if (r.value && r.value.toString) return Number(r.value.toString());
-  //         return Number(r.toString?.() || 0);
-  //       };
+        // map results (contract read helpers return CV-like objects; handle numbers or objects)
+        const mapNumeric = (r) => {
+          if (r === undefined || r === null) return 0;
+          if (typeof r === "number") return r;
+          if (r.value && typeof r.value === "number") return r.value;
+          if (r.value && r.value.toString) return Number(r.value.toString());
+          return Number(r.toString?.() || 0);
+        };
 
-  //       const pool = mapNumeric(poolRes);
-  //       const yesSupply = mapNumeric(yesSupplyRes);
-  //       const noSupply = mapNumeric(noSupplyRes);
-  //       const outcome = (outcomeRes && outcomeRes.value) || outcomeRes || "";
+        const pool = mapNumeric(poolRes);
+        const yesSupply = mapNumeric(yesSupplyRes);
+        const noSupply = mapNumeric(noSupplyRes);
+        const outcome = (outcomeRes && outcomeRes.value) || outcomeRes || "";
 
-  //       if (mounted) {
-  //         setContractData({
-  //           outcome,
-  //           optionPool: {
-  //             yes: pool * (yesSupply / (yesSupply + noSupply || 1)),
-  //             no: pool * (noSupply / (yesSupply + noSupply || 1)),
-  //           },
-  //           optionBalance: { yes: mapNumeric(yesBal), no: mapNumeric(noBal) },
-  //           pool,
-  //           rewardClaimed: !!rewardClaimed,
-  //           yesSupply,
-  //           noSupply,
-  //         });
-  //       }
-  //     } catch (err) {
-  //       console.warn("Failed to read contract data", err);
-  //     } finally {
-  //       if (mounted) setContractLoading(false);
-  //     }
-  //   }
-  //   fetchContract();
-  //   const interval = setInterval(fetchContract, 15000);
-  //   return () => {
-  //     mounted = false;
-  //     clearInterval(interval);
-  //   };
-  // }, [poll, user]);
+        if (mounted) {
+          setContractData({
+            outcome,
+            optionPool: {
+              yes: pool * (yesSupply / (yesSupply + noSupply || 1)),
+              no: pool * (noSupply / (yesSupply + noSupply || 1)),
+            },
+            optionBalance: { yes: mapNumeric(yesBal), no: mapNumeric(noBal) },
+            pool,
+            rewardClaimed: !!rewardClaimed,
+            yesSupply,
+            noSupply,
+          });
+        }
+      } catch (err) {
+        console.warn("Failed to read contract data", err);
+      } finally {
+        if (mounted) setContractLoading(false);
+      }
+    }
+    fetchContract();
+    const interval = setInterval(fetchContract, 15000);
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+    };
+  }, [poll, user]);
 
   // keep liveTrades in sync when server data changes
   useEffect(() => {
