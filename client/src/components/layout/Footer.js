@@ -1,102 +1,95 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import {
-  FaTwitter,
+  FaXTwitter,
   FaDiscord,
-  FaInstagram,
-  FaLinkedin,
   FaGithub,
-  FaBitcoin,
-} from "react-icons/fa";
+} from "react-icons/fa6";
+import { FaBookOpen } from "react-icons/fa";
 import logo from "../../assets/imgs/bw-logo.png";
-import { FaXTwitter } from "react-icons/fa6";
-import { SiGitbook } from "react-icons/si";
 
 const Footer = () => {
-  const currentYear = new Date().getFullYear();
-
-  const footerLinks = [
-    { name: "Privacy", href: "/privacy" },
-    { name: "Terms of Use", href: "/terms" },
-    { name: "Learn", href: "/learn" },
-    { name: "Careers", href: "/careers" },
-    { name: "Press", href: "/press" },
-  ];
-
-  const socialLinks = [
-    {
-      name: "X",
-      icon: FaXTwitter,
-      href: "https://x.com/Bitcoinworldapp",
-    },
-    {
-      name: "Discord",
-      icon: FaDiscord,
-      href: "https://discord.gg/bitcoinworld",
-    },
-    {
-      name: "GitBook",
-      icon: SiGitbook,
-      href: "https://t.co/SlYgicNG9F",
-    },
-    // {
-    //   name: "LinkedIn",
-    //   icon: FaLinkedin,
-    //   href: "https://linkedin.com/company/bitcoinworld",
-    // },
-    {
-      name: "GitHub",
-      icon: FaGithub,
-      href: "https://github.com/bitcoinworldapp/bitcoin-world-app",
-    },
-  ];
-
   return (
-    <footer className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
-          {/* Left Side - Company Info */}
-          <div className="flex items-center space-x-2">
-            <img src={logo} alt="BitcoinWorld Logo" className="w-6 h-6" />
-            <span className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-              BitcoinWorld Inc.
-            </span>
-            <span className="text-gray-500 dark:text-gray-400">
-              © {currentYear}
-            </span>
+    <footer className="bg-gray-900 text-gray-300 border-t border-gray-800">
+      {/* Top Row */}
+      <div className="max-w-[1800px] mx-auto px-4 sm:px-6 lg:px-10 py-6">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+          {/* Left: Brand */}
+          <div className="flex items-center gap-3">
+            <img src={logo} alt="BitcoinWorld" className="w-7 h-7 rounded-full" />
+            <div className="text-lg font-semibold text-white">BitcoinWorld Inc.</div>
+            <span className="text-sm text-gray-400">© {new Date().getFullYear()}</span>
           </div>
 
-          {/* Center - Navigation Links */}
-          <div className="flex items-center space-x-6">
-            {footerLinks.map((link) => (
-              <Link
-                key={link.name}
-                to={link.href}
-                className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 transition-colors text-sm"
-              >
-                {link.name}
-              </Link>
-            ))}
-          </div>
+          {/* Center: Links (nav) */}
+          <nav className="flex flex-wrap items-center gap-x-8 gap-y-3 md:order-none order-3 justify-start md:justify-center">
+            <Link to="/privacy" className="hover:text-white transition-colors">Privacy</Link>
+            <Link to="/terms" className="hover:text-white transition-colors">Terms of Use</Link>
+            <Link to="/learn" className="hover:text-white transition-colors">Learn</Link>
+            <Link to="/careers" className="hover:text-white transition-colors">Careers</Link>
+            <Link to="/press" className="hover:text-white transition-colors">Press</Link>
+          </nav>
 
-          {/* Right Side - Social Media */}
-          <div className="flex items-center space-x-4">
-            {socialLinks.map((social) => (
-              <a
-                key={social.name}
-                href={social.href}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
-                aria-label={social.name}
-              >
-                <social.icon className="w-5 h-5" />
-              </a>
-            ))}
+          {/* Right: Social / External */}
+          <div className="flex items-center gap-5">
+            <a
+              href="https://twitter.com/"
+              target="_blank"
+              rel="noreferrer"
+              className="text-gray-400 hover:text-primary-300 transition-colors"
+              aria-label="X (Twitter)"
+            >
+              <FaXTwitter size={20} />
+            </a>
+            <a
+              href="https://discord.com/"
+              target="_blank"
+              rel="noreferrer"
+              className="text-gray-400 hover:text-primary-300 transition-colors"
+              aria-label="Discord"
+            >
+              <FaDiscord size={22} />
+            </a>
+            <a
+              href="https://docs.yoursite.com/"
+              target="_blank"
+              rel="noreferrer"
+              className="text-gray-400 hover:text-primary-300 transition-colors"
+              aria-label="Documentation"
+            >
+              <FaBookOpen size={20} />
+            </a>
+            <a
+              href="https://github.com/"
+              target="_blank"
+              rel="noreferrer"
+              className="text-gray-400 hover:text-primary-300 transition-colors"
+              aria-label="GitHub"
+            >
+              <FaGithub size={22} />
+            </a>
           </div>
         </div>
+      </div>
 
-        {/* Note: Removed duplicate mobile section to avoid double footer on small screens */}
+      {/* Bottom bar */}
+      <div className="border-t border-gray-800">
+        <div className="max-w-[1800px] mx-auto px-4 sm:px-6 lg:px-10 py-4">
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            {/* Left: mini brand + socials (only mobile like Kairos) */}
+            <div className="flex items-center gap-3 md:hidden">
+              <img src={logo} alt="BitcoinWorld" className="w-6 h-6 rounded-full" />
+              <span className="text-sm text-gray-400">
+                © {new Date().getFullYear()} BitcoinWorld. All rights reserved.
+              </span>
+            </div>
+
+            {/* Right: legal copy (desktop) */}
+            <div className="hidden md:block text-sm text-gray-400">
+              © {new Date().getFullYear()} BitcoinWorld Inc. All rights reserved.
+            </div>
+          </div>
+        </div>
       </div>
     </footer>
   );
