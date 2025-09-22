@@ -1,19 +1,32 @@
+// scripts/populateData.js
+/* eslint-disable no-console */
 const mongoose = require("mongoose");
+const crypto = require("crypto");
 const User = require("../models/User");
 const Poll = require("../models/Poll");
 const Trade = require("../models/Trade");
 require("dotenv").config();
 
-// Connect to MongoDB
-mongoose.connect(
-  process.env.MONGODB_URI || "mongodb://localhost:27017/bitcoinworld",
-  {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-  }
-);
+// ==== Utilidades ====
+// Dirección estilo Ethereum: 0x + 40 hex (20 bytes)
+const randomWallet = () => "0x" + crypto.randomBytes(20).toString("hex");
+// ID único para marketId
+const uid = () =>
+  (crypto.randomUUID ? crypto.randomUUID() : new mongoose.Types.ObjectId().toString());
 
-// Sample data for different categories
+// ==== Conexión a MongoDB ====
+const MONGO_URI =
+  process.env.MONGODB_URI || "mongodb://localhost:27017/bitcoinworld";
+
+mongoose
+  .connect(MONGO_URI)
+  .then(() => console.log("MongoDB conectado:", MONGO_URI))
+  .catch((err) => {
+    console.error("Error conectando a MongoDB:", err);
+    process.exit(1);
+  });
+
+// ==== Datos de ejemplo ====
 const sampleData = {
   Politics: [
     {
@@ -105,7 +118,8 @@ const sampleData = {
       subCategory: "Turkey",
       options: [{ text: "Yes", percentage: 30 }, { text: "No", percentage: 70 }],
       image: "https://images.unsplash.com/photo-1549888834-3ec93abae044?w=400",
-      rules: "Resolves YES if official notice for early elections is issued per law.",
+      rules:
+        "Resolves YES if official notice for early elections is issued per law.",
     },
   ],
   Crypto: [
@@ -143,14 +157,14 @@ const sampleData = {
       subCategory: "Solana",
       options: [{ text: "Yes", percentage: 48 }, { text: "No", percentage: 52 }],
       image: "https://images.unsplash.com/photo-1621761191319-c6fb62004040?w=400",
-      rules: "Resolves YES if the daily high on any reputable exchange exceeds prior ATH.",
+      rules:
+        "Resolves YES if the daily high on any reputable exchange exceeds prior ATH.",
     },
   ],
   Tech: [
     {
       title: "Will GPT-5 be released in 2024?",
-      description:
-        "Will OpenAI officially release GPT-5 to the public in 2024?",
+      description: "Will OpenAI officially release GPT-5 to the public in 2024?",
       subCategory: "GPT-5",
       options: [
         { text: "Yes", percentage: 30 },
@@ -163,8 +177,7 @@ const sampleData = {
     },
     {
       title: "Will SpaceX successfully land on Mars in 2024?",
-      description:
-        "Will SpaceX successfully land a spacecraft on Mars in 2024?",
+      description: "Will SpaceX successfully land a spacecraft on Mars in 2024?",
       subCategory: "SpaceX",
       options: [
         { text: "Yes", percentage: 10 },
@@ -177,11 +190,13 @@ const sampleData = {
     },
     {
       title: "Will Apple release a foldable iPhone this year?",
-      description: "Official consumer release of a foldable iPhone in any market this year.",
+      description:
+        "Official consumer release of a foldable iPhone in any market this year.",
       subCategory: "Big Tech",
       options: [{ text: "Yes", percentage: 15 }, { text: "No", percentage: 85 }],
       image: "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=400",
-      rules: "Resolves YES on official retail availability announced by Apple.",
+      rules:
+        "Resolves YES on official retail availability announced by Apple.",
     },
   ],
   Culture: [
@@ -242,7 +257,8 @@ const sampleData = {
     },
     {
       title: "Will India surpass China in GDP growth this year?",
-      description: "Real GDP growth rate of India higher than China for the full year.",
+      description:
+        "Real GDP growth rate of India higher than China for the full year.",
       subCategory: "India",
       options: [{ text: "Yes", percentage: 62 }, { text: "No", percentage: 38 }],
       image: "https://images.unsplash.com/photo-1582571352032-448f7928eca1?w=400",
@@ -302,7 +318,8 @@ const sampleData = {
     },
     {
       title: "Will Real Madrid win El Clásico next match?",
-      description: "Outcome of next El Clásico between Real Madrid and Barcelona.",
+      description:
+        "Outcome of next El Clásico between Real Madrid and Barcelona.",
       subCategory: "Basketball",
       options: [
         { text: "Real Madrid", percentage: 45 },
@@ -311,14 +328,14 @@ const sampleData = {
       ],
       image:
         "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400",
-      rules: "Resolves to the team that wins after regulation; Draw if official draw result.",
+      rules:
+        "Resolves to the team that wins after regulation; Draw if official draw result.",
     },
   ],
   Elections: [
     {
       title: "Who will win the 2024 US Presidential Election?",
-      description:
-        "Which candidate will win the 2024 US Presidential Election?",
+      description: "Which candidate will win the 2024 US Presidential Election?",
       subCategory: "US Presidential",
       options: [
         { text: "Donald Trump", percentage: 45 },
@@ -332,29 +349,33 @@ const sampleData = {
   ],
 };
 
-// Create admin user
+// ==== Creación de usuarios ====
 async function createAdminUser() {
   try {
-    const adminExists = await User.findOne({ isAdmin: true });
-    if (!adminExists) {
-      const admin = new User({
+    let admin = await User.findOne({ isAdmin: true });
+    if (!admin) {
+      admin = new User({
         username: "admin",
         email: "admin@bitcoinworld.com",
         password: "admin123",
         isAdmin: true,
         balance: 10000,
+        walletAddress: randomWallet(),
       });
       await admin.save();
       console.log("Admin user created");
-      return admin;
+    } else if (!admin.walletAddress) {
+      admin.walletAddress = randomWallet();
+      await admin.save();
+      console.log("Admin walletAddress set");
     }
-    return adminExists;
+    return admin;
   } catch (error) {
     console.error("Error creating admin user:", error);
+    return null;
   }
 }
 
-// Create regular users
 async function createUsers() {
   const users = [];
   const userData = [
@@ -362,11 +383,7 @@ async function createUsers() {
     { username: "trader2", email: "trader2@example.com", balance: 3000 },
     { username: "trader3", email: "trader3@example.com", balance: 7500 },
     { username: "crypto_whale", email: "whale@example.com", balance: 25000 },
-    {
-      username: "political_expert",
-      email: "politics@example.com",
-      balance: 4000,
-    },
+    { username: "political_expert", email: "politics@example.com", balance: 4000 },
   ];
 
   for (const data of userData) {
@@ -376,9 +393,14 @@ async function createUsers() {
         user = new User({
           ...data,
           password: "password123",
+          walletAddress: randomWallet(),
         });
         await user.save();
         console.log(`User ${data.username} created`);
+      } else if (!user.walletAddress) {
+        user.walletAddress = randomWallet();
+        await user.save();
+        console.log(`User ${data.username} walletAddress set`);
       }
       users.push(user);
     } catch (error) {
@@ -388,11 +410,16 @@ async function createUsers() {
   return users;
 }
 
-// Create polls
+// ==== Creación de polls ====
 async function createPolls(users) {
   const polls = [];
   const admin = await User.findOne({ isAdmin: true });
-  const creators = [admin, ...users];
+  const creators = [admin, ...users].filter(Boolean);
+
+  if (creators.length === 0) {
+    console.warn("No creators available; skipping poll creation.");
+    return polls;
+  }
 
   for (const [category, categoryPolls] of Object.entries(sampleData)) {
     for (const pollData of categoryPolls) {
@@ -401,11 +428,20 @@ async function createPolls(users) {
         const endDate = new Date();
         endDate.setFullYear(endDate.getFullYear() + 1);
 
+        // Inicializar métricas en opciones
+        const options = (pollData.options || []).map((o) => ({
+          ...o,
+          totalVolume: 0,
+          totalTrades: 0,
+        }));
+
         const poll = new Poll({
           ...pollData,
+          options,
           category,
           createdBy: creator._id,
           endDate,
+          marketId: uid(), // <-- único para evitar E11000 en marketId
           totalVolume: Math.floor(Math.random() * 10000) + 1000,
           totalTrades: Math.floor(Math.random() * 500) + 50,
           uniqueTraders: Math.floor(Math.random() * 100) + 10,
@@ -418,8 +454,9 @@ async function createPolls(users) {
         polls.push(poll);
         console.log(`Poll "${pollData.title}" created`);
 
-        // Update option percentages based on volume
-        await poll.updatePercentages();
+        if (typeof poll.updatePercentages === "function") {
+          await poll.updatePercentages();
+        }
       } catch (error) {
         console.error(`Error creating poll "${pollData.title}":`, error);
       }
@@ -428,21 +465,45 @@ async function createPolls(users) {
   return polls;
 }
 
-// Create trades
+// ==== Creación de trades ====
 async function createTrades(polls, users) {
-  const tradeTypes = ["buy", "sell"];
-  const allUsers = [await User.findOne({ isAdmin: true }), ...users];
+  const admin = await User.findOne({ isAdmin: true });
+  const allUsers = [admin, ...users].filter(Boolean);
+  if (allUsers.length === 0) {
+    console.warn("No users available; skipping trade creation.");
+    return;
+  }
+
+  // util para clamp
+  const clamp = (n, lo, hi) => Math.min(hi, Math.max(lo, n));
 
   for (const poll of polls) {
-    const numTrades = Math.floor(Math.random() * 50) + 10;
+    // distribuimos en los últimos 7 días
+    const start = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    const stepMin = 15; // un trade cada ~15 min
+    const points = Math.floor((7 * 24 * 60) / stepMin); // ~672
 
-    for (let i = 0; i < numTrades; i++) {
+    // precio base por opción (random walk alrededor de 0.5)
+    const lastPrice = poll.options.map(() => 0.5);
+
+    for (let i = 0; i < points; i++) {
       try {
         const user = allUsers[Math.floor(Math.random() * allUsers.length)];
         const optionIndex = Math.floor(Math.random() * poll.options.length);
-        const type = tradeTypes[Math.floor(Math.random() * tradeTypes.length)];
-        const amount = Math.floor(Math.random() * 100) + 10;
-        const price = Math.random() * 0.8 + 0.1; // Price between 0.1 and 0.9
+
+        // random walk suave por opción
+        const drift = (Math.random() - 0.5) * 0.06; // +/- 3%
+        lastPrice[optionIndex] = clamp(lastPrice[optionIndex] + drift, 0.05, 0.95);
+
+        const amount = Math.floor(Math.random() * 45) + 5; // 5–50
+        const price = Number(lastPrice[optionIndex].toFixed(2));
+        const type = Math.random() < 0.5 ? "buy" : "sell";
+
+        // timestamp espaciado + jitter de hasta 2 min
+        const ts =
+          start +
+          i * stepMin * 60 * 1000 +
+          Math.floor((Math.random() - 0.5) * 2 * 60 * 1000);
 
         const trade = new Trade({
           poll: poll._id,
@@ -456,43 +517,53 @@ async function createTrades(polls, users) {
           orderType: "market",
         });
 
+        // Fuerza createdAt/updatedAt aun si el schema tiene timestamps
+        trade.set("createdAt", new Date(ts));
+        trade.set("updatedAt", new Date(ts));
         await trade.save();
 
-        // Update poll statistics
-        poll.options[optionIndex].totalVolume += amount;
-        poll.options[optionIndex].totalTrades += 1;
+        // Métricas por opción
+        poll.options[optionIndex].totalVolume =
+          (poll.options[optionIndex].totalVolume || 0) + amount;
+        poll.options[optionIndex].totalTrades =
+          (poll.options[optionIndex].totalTrades || 0) + 1;
       } catch (error) {
         console.error("Error creating trade:", error);
       }
     }
 
-    // Update poll percentages after all trades
-    await poll.updatePercentages();
-    console.log(`Trades created for poll "${poll.title}"`);
+    if (typeof poll.updatePercentages === "function") {
+      await poll.updatePercentages();
+    }
+    await poll.save();
+    console.log(`Trades (histórico) creados para "${poll.title}"`);
   }
 }
 
-// Main population function
+// ==== Función principal ====
 async function populateData() {
   try {
     console.log("Starting data population...");
 
-    // Clear existing data
+    // Limpiar datos previos (mantener admin)
     await Trade.deleteMany({});
     await Poll.deleteMany({});
     await User.deleteMany({ isAdmin: false });
 
     console.log("Cleared existing data");
 
-    // Create users
+    // Crear admin primero
+    await createAdminUser();
+
+    // Crear usuarios
     const users = await createUsers();
     console.log(`Created ${users.length} users`);
 
-    // Create polls
+    // Crear polls
     const polls = await createPolls(users);
     console.log(`Created ${polls.length} polls`);
 
-    // Create trades
+    // Crear trades
     await createTrades(polls, users);
     console.log("Created trades");
 
@@ -504,5 +575,5 @@ async function populateData() {
   }
 }
 
-// Run the population script
+// Ejecutar
 populateData();

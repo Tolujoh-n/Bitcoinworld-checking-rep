@@ -1,13 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "react-query";
-import {
-  FaBitcoin,
-  FaArrowUp,
-  FaStar,
-  FaChartLine,
-  FaClock,
-} from "react-icons/fa";
+import { FaArrowUp, FaStar } from "react-icons/fa";
 import axios from "../setupAxios";
 import PollCard from "../components/polls/PollCard";
 import LoadingSpinner from "../components/common/LoadingSpinner";
@@ -15,20 +9,24 @@ import logo from "../assets/imgs/bw-logo.png";
 import { BACKEND_URL } from "../contexts/Bakendurl";
 
 const Home = () => {
-  // Fetch trending polls
+  // Trending
   const { data: trendingPolls, isLoading: trendingLoading } = useQuery(
     "trending-polls",
     async () => {
-      const response = await axios.get(`${BACKEND_URL}/api/polls/trending?limit=6`);
+      const response = await axios.get(
+        `${BACKEND_URL}/api/polls/trending?limit=24`
+      );
       return response.data;
     }
   );
 
-  // Fetch featured polls
+  // Featured
   const { data: featuredPolls, isLoading: featuredLoading } = useQuery(
     "featured-polls",
     async () => {
-      const response = await axios.get(`${BACKEND_URL}/api/polls?featured=true&limit=8`);
+      const response = await axios.get(
+        `${BACKEND_URL}/api/polls?featured=true&limit=24`
+      );
       return response.data;
     }
   );
@@ -80,12 +78,23 @@ const Home = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Hero Section */}
+      {/* Hero */}
       <section className="bg-gradient-to-br from-primary-600 via-primary-700 to-bitcoin-600 text-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
+        <div className="max-w-[1800px] mx-auto px-4 sm:px-6 lg:px-10 py-16 md:py-20">
           <div className="text-center">
             <div className="flex justify-center mb-6">
-              <img src={logo} alt="BitcoinWorld Logo" className="w-16 h-16" />
+              {/* Logo circular (no se corta) */}
+              <div
+                className="rounded-full bg-white/5 ring-1 ring-white/30 p-[4px] overflow-hidden"
+                style={{ width: 64, height: 64 }}
+              >
+                <img
+                  src={logo}
+                  alt="BitcoinWorld Logo"
+                  className="w-full h-full rounded-full object-contain"
+                  draggable="false"
+                />
+              </div>
             </div>
 
             <h1 className="text-4xl md:text-6xl font-bold mb-6">
@@ -113,11 +122,11 @@ const Home = () => {
         </div>
       </section>
 
-      {/* Categories Section */}
-      <section className="py-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-4">
+      {/* Categories */}
+      <section className="py-14">
+        <div className="max-w-[1800px] mx-auto px-4 sm:px-6 lg:px-10">
+          <div className="text-center mb-10">
+            <h2 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">
               Explore Categories
             </h2>
             <p className="text-lg text-gray-600 dark:text-gray-400">
@@ -125,7 +134,7 @@ const Home = () => {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid gap-6 [grid-template-columns:repeat(auto-fit,minmax(220px,1fr))]">
             {categories.map((category) => (
               <Link
                 key={category.name}
@@ -137,7 +146,7 @@ const Home = () => {
                 >
                   {category.icon}
                 </div>
-                <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
+                <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-1">
                   {category.name}
                 </h3>
                 <p className="text-gray-600 dark:text-gray-400">
@@ -149,9 +158,9 @@ const Home = () => {
         </div>
       </section>
 
-      {/* Trending Section */}
-      <section className="py-16 bg-white dark:bg-gray-800">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      {/* Trending */}
+      <section className="py-14 bg-white dark:bg-gray-800">
+        <div className="max-w-[1800px] mx-auto px-4 sm:px-6 lg:px-10">
           <div className="flex items-center justify-between mb-8">
             <div className="flex items-center space-x-3">
               <FaArrowUp className="w-6 h-6 text-orange-500" />
@@ -172,8 +181,8 @@ const Home = () => {
               <LoadingSpinner size="lg" />
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {trendingPolls?.slice(0, 6).map((poll) => (
+            <div className="grid gap-6 [grid-template-columns:repeat(auto-fit,minmax(340px,1fr))]">
+              {trendingPolls?.slice(0, 24).map((poll) => (
                 <PollCard key={poll._id} poll={poll} />
               ))}
             </div>
@@ -181,16 +190,14 @@ const Home = () => {
         </div>
       </section>
 
-      {/* Featured Section */}
-      <section className="py-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between mb-8">
-            <div className="flex items-center space-x-3">
-              <FaStar className="w-6 h-6 text-yellow-500" />
-              <h2 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
-                Featured Polls
-              </h2>
-            </div>
+      {/* Featured */}
+      <section className="py-14">
+        <div className="max-w-[1800px] mx-auto px-4 sm:px-6 lg:px-10">
+          <div className="flex items-center space-x-3 mb-8">
+            <FaStar className="w-6 h-6 text-yellow-500" />
+            <h2 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
+              Featured Polls
+            </h2>
           </div>
 
           {featuredLoading ? (
@@ -198,8 +205,8 @@ const Home = () => {
               <LoadingSpinner size="lg" />
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {featuredPolls?.polls?.slice(0, 8).map((poll) => (
+            <div className="grid gap-6 [grid-template-columns:repeat(auto-fit,minmax(300px,1fr))]">
+              {featuredPolls?.polls?.slice(0, 24).map((poll) => (
                 <PollCard key={poll._id} poll={poll} compact />
               ))}
             </div>
@@ -207,13 +214,11 @@ const Home = () => {
         </div>
       </section>
 
-      {/* Stats Section */}
+      {/* Stats */}
       <section className="py-16 bg-gradient-to-r from-primary-600 to-bitcoin-600 text-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-[1800px] mx-auto px-4 sm:px-6 lg:px-10">
           <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold mb-4">
-              BitcoinWorld by the Numbers
-            </h2>
+            <h2 className="text-3xl font-bold mb-4">BitcoinWorld by the Numbers</h2>
             <p className="text-xl text-primary-100">
               Join thousands of traders making predictions
             </p>
@@ -240,7 +245,7 @@ const Home = () => {
         </div>
       </section>
 
-      {/* CTA Section */}
+      {/* CTA */}
       <section className="py-16 bg-gray-100 dark:bg-gray-700">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-4">

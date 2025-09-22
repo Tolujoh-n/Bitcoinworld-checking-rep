@@ -8,7 +8,6 @@ import {
   FaSignOutAlt,
   FaBars,
   FaTimes,
-  FaBitcoin,
 } from "react-icons/fa";
 import {
   authenticate,
@@ -19,7 +18,6 @@ import { useTheme } from "../../contexts/ThemeContext";
 import SearchModal from "../search/SearchModal";
 import logo from "../../assets/imgs/bw-logo.png";
 import { useAuth } from "../../contexts/AuthContext";
-// import { NETWORK } from "../../contexts/Constants";
 
 const Navbar = () => {
   const { isDark, toggleTheme } = useTheme();
@@ -37,7 +35,7 @@ const Navbar = () => {
       setWalletAddress(address);
       loginWithWallet(address);
     }
-  }, []);
+  }, [loginWithWallet]);
 
   const handleConnectWallet = async () => {
     const address = await authenticate();
@@ -48,7 +46,7 @@ const Navbar = () => {
   };
 
   const handleDisconnect = () => {
-    logoutWallet(); // clears wallet connection
+    logoutWallet();
     setWalletAddress("");
     navigate("/");
   };
@@ -79,12 +77,20 @@ const Navbar = () => {
       <nav className="bg-white dark:bg-gray-800 shadow-soft border-b border-gray-200 dark:border-gray-700 sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <Link to="/" className="flex items-center space-x-3">
-              <img src={logo} alt="BitcoinWorld Logo" className="w-8 h-8" />
-              <span className="text-xl font-bold gradient-text">
-                BitcoinWorld
-              </span>
+            {/* === LOGO CIRCULAR (no se corta) === */}
+            <Link to="/" className="flex items-center space-x-3 shrink-0" aria-label="BitcoinWorld">
+              <div className="logo-badge">
+                <img
+                  src={logo}
+                  alt="BitcoinWorld Logo"
+                  className="w-full h-full rounded-full object-contain"
+                  draggable="false"
+                />
+              </div>
+              <span className="text-xl font-bold gradient-text">BitcoinWorld</span>
             </Link>
+
+            {/* Search (desktop) */}
             <div className="hidden md:flex flex-1 max-w-lg mx-8">
               <div className="relative w-full">
                 <input
@@ -97,39 +103,34 @@ const Navbar = () => {
                 <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
               </div>
             </div>
+
+            {/* Right actions */}
             <div className="flex items-center space-x-4">
               <button
                 onClick={() => setShowSearchModal(true)}
                 className="md:hidden p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                aria-label="Open search"
               >
                 <FaSearch className="w-5 h-5" />
               </button>
+
               <button
                 onClick={toggleTheme}
                 className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
+                aria-label="Toggle theme"
               >
-                {isDark ? (
-                  <FaSun className="w-5 h-5" />
-                ) : (
-                  <FaMoon className="w-5 h-5" />
-                )}
+                {isDark ? <FaSun className="w-5 h-5" /> : <FaMoon className="w-5 h-5" />}
               </button>
 
-              {/* Auth Buttons */}
+              {/* Auth */}
               {walletAddress ? (
                 <div className="flex items-center space-x-3">
                   {user?.isAdmin ? (
-                    <Link
-                      to="/admin"
-                      className="btn-outline btn-sm hidden md:inline-flex"
-                    >
+                    <Link to="/admin" className="btn-outline btn-sm hidden md:inline-flex">
                       Admin
                     </Link>
                   ) : (
-                    <Link
-                      to="/admin-auth"
-                      className="btn-outline btn-sm hidden md:inline-flex"
-                    >
+                    <Link to="/admin-auth" className="btn-outline btn-sm hidden md:inline-flex">
                       Admin Login
                     </Link>
                   )}
@@ -138,9 +139,7 @@ const Navbar = () => {
                     className="flex items-center space-x-2 text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
                   >
                     <FaUser className="w-4 h-4" />
-                    <span className="hidden sm:block">
-                      {truncateAddress(walletAddress)}
-                    </span>
+                    <span className="hidden sm:block">{truncateAddress(walletAddress)}</span>
                   </Link>
                   <button
                     onClick={handleDisconnect}
@@ -152,10 +151,7 @@ const Navbar = () => {
                 </div>
               ) : (
                 <div className="flex items-center space-x-3">
-                  <Link
-                    to="/admin-auth"
-                    className="btn-outline btn-sm hidden md:inline-flex"
-                  >
+                  <Link to="/admin-auth" className="btn-outline btn-sm hidden md:inline-flex">
                     Admin Login
                   </Link>
                   <button onClick={handleConnectWallet} className="btn-primary">
@@ -167,12 +163,9 @@ const Navbar = () => {
               <button
                 onClick={() => setShowMobileMenu(!showMobileMenu)}
                 className="md:hidden p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                aria-label="Toggle menu"
               >
-                {showMobileMenu ? (
-                  <FaTimes className="w-5 h-5" />
-                ) : (
-                  <FaBars className="w-5 h-5" />
-                )}
+                {showMobileMenu ? <FaTimes className="w-5 h-5" /> : <FaBars className="w-5 h-5" />}
               </button>
             </div>
           </div>
@@ -195,16 +188,16 @@ const Navbar = () => {
                   {category.name}
                 </Link>
               ))}
-              {/* Admin quick link (mobile visible) */}
               <Link
                 to={user?.isAdmin ? "/admin" : "/admin-auth"}
-                className={`whitespace-nowrap px-3 py-2 rounded-md text-sm font-medium transition-colors text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700`}
+                className="whitespace-nowrap px-3 py-2 rounded-md text-sm font-medium transition-colors text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
               >
                 {user?.isAdmin ? "Admin" : "Admin Login"}
               </Link>
             </div>
           </div>
         </div>
+
         {showMobileMenu && (
           <div className="md:hidden border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
             <div className="px-2 pt-2 pb-3 space-y-1">
@@ -226,10 +219,8 @@ const Navbar = () => {
           </div>
         )}
       </nav>
-      <SearchModal
-        isOpen={showSearchModal}
-        onClose={() => setShowSearchModal(false)}
-      />
+
+      <SearchModal isOpen={showSearchModal} onClose={() => setShowSearchModal(false)} />
     </>
   );
 };

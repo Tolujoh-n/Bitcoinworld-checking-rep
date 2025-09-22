@@ -26,9 +26,6 @@ import {
   getNoSupply,
   getYesBalance,
   getNoBalance,
-  getQuoteYes,
-  getQuoteNo,
-  getRewardClaimed,
   buyYes,
   buyNo,
   sellYes,
@@ -41,33 +38,84 @@ import {
   pollTx,
 } from "../contexts/stacks/marketClient";
 
+/* ───────────────── NumberInput con stepper ───────────────── */
+const NumberInput = ({
+  value,
+  onChange,
+  step = 1,
+  min = 0,
+  max,
+  placeholder = "0.00",
+  disabled = false,
+  className = "",
+  readOnly = false,
+}) => {
+  const parse = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
+  const clamp = (n) => {
+    if (typeof max === "number") n = Math.min(n, max);
+    if (typeof min === "number") n = Math.max(n, min);
+    return n;
+  };
+  const inc = () => {
+    if (readOnly || disabled) return;
+    onChange(String(clamp(parse(value || 0) + step)));
+  };
+  const dec = () => {
+    if (readOnly || disabled) return;
+    onChange(String(clamp(parse(value || 0) - step)));
+  };
+
+  return (
+    <div className={`number-wrap ${disabled ? "opacity-60" : ""}`}>
+      <input
+        type="text"
+        inputMode="decimal"
+        className={`input number-input ${className}`}
+        value={value}
+        placeholder={placeholder}
+        onChange={(e) => onChange(e.target.value)}
+        disabled={disabled}
+        readOnly={readOnly}
+      />
+      <div className="number-steps">
+        <button type="button" className="number-step" aria-label="Increase" onClick={inc}>
+          <svg viewBox="0 0 24 24" className="w-3 h-3">
+            <path d="M6 14l6-6 6 6" fill="none" stroke="currentColor" strokeWidth="2" />
+          </svg>
+        </button>
+        <button type="button" className="number-step" aria-label="Decrease" onClick={dec}>
+          <svg viewBox="0 0 24 24" className="w-3 h-3">
+            <path d="M6 10l6 6 6-6" fill="none" stroke="currentColor" strokeWidth="2" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  );
+};
+
 const PollDetail = () => {
   const { id } = useParams();
   const queryClient = useQueryClient();
   const { user } = useAuth();
+
   const [side, setSide] = useState("buy");
+  const [orderType, setOrderType] = useState("market");
   const [selectedOptionIndex, setSelectedOptionIndex] = useState(0);
   const [amount, setAmount] = useState("");
   const [price, setPrice] = useState("0.5");
 
   const { data, isLoading, error } = useQuery(
     ["poll-detail", id],
-    async () => {
-      const response = await axios.get(`${BACKEND_URL}/api/polls/${id}`);
-      return response.data;
-    },
+    async () => (await axios.get(`${BACKEND_URL}/api/polls/${id}`)).data,
     { staleTime: 60 * 1000 }
   );
 
-  // order type
-  const [orderType, setOrderType] = useState("market"); // 'market' | 'limit'
-
   const poll = data?.poll;
+
   const [liveOrderBook, setLiveOrderBook] = useState(data?.orderBook || null);
   const [liveTrades, setLiveTrades] = useState(data?.tradeHistory || []);
   const [claimed, setClaimed] = useState(false);
 
-  // dynamic contract data
   const [contractData, setContractData] = useState({
     outcome: "",
     optionPool: { yes: 0, no: 0 },
@@ -77,40 +125,21 @@ const PollDetail = () => {
     noSupply: 0,
   });
   const [contractLoading, setContractLoading] = useState(false);
-  // logging guard
   const _logged = useRef({ contract: false, backend: false });
 
-  // compute market price from on-chain pools
   const marketPrice = useMemo(() => {
-    if (!contractData) return 0.5;
-
-    // If there’s no pool yet (first trade), use a safe default
-    if (!contractData.pool || contractData.pool === 0) {
-      return 0.5; // fallback: starting price (same as Auto functions)
-    }
-
-    // map selected option to yes/no pools for binary markets
+    if (!contractData?.pool) return 0.5;
     const idx = selectedOptionIndex === 0 ? "yes" : "no";
     const optPool = contractData.optionPool?.[idx] ?? 0;
-
-    const price = optPool / contractData.pool;
-    if (isNaN(price) || !isFinite(price)) return 0.5;
-
-    return Number(price.toFixed(2));
+    const p = optPool / contractData.pool;
+    return Number.isFinite(p) ? Number(p.toFixed(2)) : 0.5;
   }, [contractData, selectedOptionIndex]);
 
-  // tiny no-op to reference setters so lint doesn't complain while feature is present
-  useEffect(() => {
-    void setLiveOrderBook;
-  }, []);
-
-  // human-readable time remaining
   const timeRemaining = useMemo(() => {
     if (!poll) return "";
     if (poll.isResolved) return "Resolved";
     const end = new Date(poll.endDate);
-    const now = new Date();
-    const diff = end - now;
+    const diff = end.getTime() - Date.now();
     if (diff <= 0) return "Ended";
     const mins = Math.floor(diff / 60000);
     const hours = Math.floor(mins / 60);
@@ -120,41 +149,19 @@ const PollDetail = () => {
     return `${mins}m`;
   }, [poll]);
 
-  // redeem mutation for claiming rewards on resolved polls
   const redeemMutation = useMutation(
     async () => {
-      if (!poll) throw new Error("No poll");
-      if (!poll.marketId) throw new Error("Missing marketId for redeem");
+      if (!poll?.marketId) throw new Error("Missing marketId for redeem");
       const marketId = Number(poll.marketId);
-
-      // call on-chain redeem via wallet
-      let txRes = null;
-      try {
-        txRes = await redeem(marketId);
-      } catch (err) {
-        console.error("On-chain redeem failed or cancelled", err);
-        throw err;
-      }
-
+      const txRes = await redeem(marketId);
       const txId = txRes?.txId || txRes?.tx_id || txRes?.txid || null;
-      if (!txId) throw new Error("No txId returned from wallet for redeem");
-
-      // wait for on-chain confirmation
-      try {
-        await pollTx(txId, 5000, 60);
-      } catch (err) {
-        console.error("Redeem transaction failed to confirm", err);
-        throw err;
-      }
-
-      // notify backend to mark rewardClaimed true
-      const res = await axios.post(
-        `${BACKEND_URL}/api/polls/${poll._id}/redeem`,
-        {
+      if (!txId) throw new Error("No txId");
+      await pollTx(txId, 5000, 60);
+      return (
+        await axios.post(`${BACKEND_URL}/api/polls/${poll._id}/redeem`, {
           txid: txId,
-        }
-      );
-      return res.data;
+        })
+      ).data;
     },
     {
       onSuccess: (res) => {
@@ -162,91 +169,50 @@ const PollDetail = () => {
         queryClient.invalidateQueries(["poll-detail", id]);
         toast.success(res?.message || "Reward claimed");
       },
-      onError: (err) => {
-        toast.error(
-          err?.response?.data?.message || err.message || "Redeem failed"
-        );
-      },
+      onError: (err) =>
+        toast.error(err?.response?.data?.message || err.message || "Redeem failed"),
     }
   );
 
-  // debug logs: show contract data and backend poll response only once
-  // logging guard (kept for potential debug use) - currently unused
-
   useEffect(() => {
-    // log backend data once when it first arrives
     if (data && !_logged.current.backend) {
-      console.log("backend data:", data);
       _logged.current.backend = true;
     }
-    // log contract data once when pool or outcome becomes available
     if (
       contractData &&
       !_logged.current.contract &&
-      (contractData.pool ||
-        contractData.outcome ||
-        contractData.yesSupply ||
-        contractData.noSupply)
+      (contractData.pool || contractData.outcome)
     ) {
-      console.log("contractData:", contractData);
       _logged.current.contract = true;
     }
   }, [data, contractData]);
 
-  // fetch contract read-only data
   useEffect(() => {
     let mounted = true;
     async function fetchContract() {
-      if (!poll || !poll.marketId) return;
+      if (!poll?.marketId) return;
       const marketId = Number(poll.marketId);
-      if (!Number.isFinite(marketId) || Number.isNaN(marketId)) {
-        console.warn(
-          "Invalid marketId, skipping contract reads:",
-          poll.marketId
-        );
-        return;
-      }
       setContractLoading(true);
       try {
-        const [poolRes, outcomeRes, yesSupplyRes, noSupplyRes] =
-          await Promise.all([
-            getPool(marketId),
-            getOutcome(marketId),
-            getYesSupply(marketId),
-            getNoSupply(marketId),
-          ]);
+        const [poolRes, outcomeRes, yesSupplyRes, noSupplyRes] = await Promise.all([
+          getPool(marketId),
+          getOutcome(marketId),
+          getYesSupply(marketId),
+          getNoSupply(marketId),
+        ]);
 
-        // get per-user balances if user has a principal/wallet address
-        let yesBal = 0;
-        let noBal = 0;
-        const principal = user?.walletAddress || user?.address || null;
-        if (principal) {
-          try {
-            yesBal = await getYesBalance(marketId, principal);
-            noBal = await getNoBalance(marketId, principal);
-          } catch (e) {
-            // log debug info but don't fail the whole fetch
-            console.warn("Per-user contract read failed", {
-              marketId,
-              principal,
-              err: e?.message || e,
-            });
-          }
-        }
-
-        // map results (contract read helpers return CV-like objects; handle numbers or objects)
-        const mapNumeric = (r) => {
-          if (r === undefined || r === null) return 0;
+        const mapNum = (r) => {
+          if (r == null) return 0;
           if (typeof r === "number") return r;
           if (r.value && typeof r.value === "number") return r.value;
-          if (r.value && r.value.toString) return Number(r.value.toString());
+          if (r.value?.toString) return Number(r.value.toString());
           return Number(r.toString?.() || 0);
         };
 
-        const pool = mapNumeric(poolRes);
-        const yesSupply = mapNumeric(yesSupplyRes);
-        const noSupply = mapNumeric(noSupplyRes);
-        const outcome = (outcomeRes && outcomeRes.value) || outcomeRes || "";
+        const pool = mapNum(poolRes);
+        const yesSupply = mapNum(yesSupplyRes);
+        const noSupply = mapNum(noSupplyRes);
+        const outcome = outcomeRes?.value || outcomeRes || "";
 
         if (mounted) {
           setContractData({
@@ -255,33 +221,31 @@ const PollDetail = () => {
               yes: pool * (yesSupply / (yesSupply + noSupply || 1)),
               no: pool * (noSupply / (yesSupply + noSupply || 1)),
             },
-            optionBalance: { yes: mapNumeric(yesBal), no: mapNumeric(noBal) },
+            optionBalance: { yes: 0, no: 0 },
             pool,
-            rewardClaimed: !!poll?.rewardClaimed, // from backend, not contract
             yesSupply,
             noSupply,
           });
         }
-      } catch (err) {
-        console.warn("Failed to read contract data", err);
+      } catch (e) {
+        // noop
       } finally {
         if (mounted) setContractLoading(false);
       }
     }
     fetchContract();
-    const interval = setInterval(fetchContract, 15000);
+    const i = setInterval(fetchContract, 15000);
     return () => {
       mounted = false;
-      clearInterval(interval);
+      clearInterval(i);
     };
-  }, [poll, user]);
+  }, [poll]);
 
-  // keep liveTrades in sync when server data changes
   useEffect(() => {
     setLiveTrades(data?.tradeHistory || []);
-  }, [data?.tradeHistory]);
+    setLiveOrderBook(data?.orderBook || null);
+  }, [data?.tradeHistory, data?.orderBook]);
 
-  // user's trades on this poll
   const userTrades = useMemo(() => {
     if (!user || !liveTrades) return [];
     return liveTrades.filter(
@@ -289,7 +253,6 @@ const PollDetail = () => {
     );
   }, [user, liveTrades]);
 
-  // determine if user has winning trade by comparing DB trades and contract outcome
   const didUserWin = useMemo(() => {
     if (!userTrades.length) return false;
     const outcomeStr = (contractData?.outcome || "").toString().toLowerCase();
@@ -297,17 +260,14 @@ const PollDetail = () => {
       o.text?.toLowerCase().includes(outcomeStr)
     );
     const winningIdx =
-      typeof poll?.winningOption === "number"
-        ? poll.winningOption
-        : contractIdx;
+      typeof poll?.winningOption === "number" ? poll.winningOption : contractIdx;
     if (typeof winningIdx !== "number" || winningIdx < 0) return false;
     return userTrades.some((t) => t.optionIndex === winningIdx);
   }, [userTrades, poll, contractData]);
 
   const isEnded = useMemo(() => {
     if (!poll) return false;
-    const now = new Date();
-    return !poll.isResolved && new Date(poll.endDate) <= now;
+    return !poll.isResolved && new Date(poll.endDate) <= new Date();
   }, [poll]);
 
   const formatCurrency = (n) =>
@@ -321,7 +281,6 @@ const PollDetail = () => {
       .catch(() => setClaimed(false));
   }, [user, poll]);
 
-  // trade mutation now supports on-chain market execution for 'market' and 'limit' orderType
   const tradeMutation = useMutation(
     async () => {
       const payload = {
@@ -333,7 +292,6 @@ const PollDetail = () => {
         orderType,
       };
 
-      // --- Step 0: detect if this is YES/NO ---
       const selectedOptionText = (
         poll?.options?.[selectedOptionIndex]?.text || ""
       )
@@ -344,107 +302,51 @@ const PollDetail = () => {
       const isYes =
         selectedOptionText.includes("yes") || selectedOptionIndex === 0;
 
-      if (!poll?.marketId) {
-        toast.error("Missing marketId for on-chain execution");
-        return Promise.reject(new Error("Missing marketId"));
-      }
+      if (!poll?.marketId) throw new Error("Missing marketId");
       const marketId = Number(poll.marketId);
 
-      // --- Step 1: get quote value ---
-      let q = null;
-      let total = 0,
-        targetCap = 0,
-        maxCost = 0;
-      try {
-        q = isYes
-          ? await getQuoteYes(marketId, Number(amount))
-          : await getQuoteNo(marketId, Number(amount));
-
-        console.log("Raw quote response:", q);
-
-        const quoteTuple = q?.value?.value || null;
-        if (quoteTuple) {
-          const totalBigInt = quoteTuple?.total?.value ?? 0n;
-          total = Number(totalBigInt);
-          targetCap = Number(totalBigInt * 10n);
-          maxCost = Number((totalBigInt * 110n) / 100n);
-
-          console.log("📊 Quote breakdown:", {
-            total,
-            targetCap,
-            maxCost,
-          });
-        }
-      } catch (err) {
-        console.error("❌ Failed to fetch quote:", err);
-      }
-
-      // --- Step 2: execute order ---
       let txResult = null;
-      try {
-        if (orderType === "market") {
-          // ✅ Check if this is the very first trade
-          const isFirstTrade = !liveTrades || liveTrades.length === 0;
-          const amt = Math.ceil(Number(amount) || 0);
+      const amt = Math.ceil(Number(amount) || 0);
 
-          if (side === "buy") {
-            if (isYes) {
-              txResult = isFirstTrade
-                ? await buyYesAuto(marketId, amt, targetCap, maxCost)
-                : await buyYes(marketId, amt);
-            } else {
-              txResult = isFirstTrade
-                ? await buyNoAuto(marketId, amt, targetCap, maxCost)
-                : await buyNo(marketId, amt);
-            }
-          } else {
-            if (isYes) {
-              txResult = isFirstTrade
-                ? await sellYesAuto(marketId, amt, targetCap, maxCost)
-                : await sellYes(marketId, amt);
-            } else {
-              txResult = isFirstTrade
-                ? await sellNoAuto(marketId, amt, targetCap, maxCost)
-                : await sellNo(marketId, amt);
-            }
-          }
+      if (orderType === "market") {
+        const isFirst = !liveTrades || liveTrades.length === 0;
+        if (side === "buy") {
+          txResult = isYes
+            ? isFirst
+              ? await buyYesAuto(marketId, amt, amt * 10, Math.ceil(amt * 1.1))
+              : await buyYes(marketId, amt)
+            : isFirst
+            ? await buyNoAuto(marketId, amt, amt * 10, Math.ceil(amt * 1.1))
+            : await buyNo(marketId, amt);
         } else {
-          // --- Limit order branch ---
-          const amt = Math.ceil(Number(amount) || 0);
-
-          console.log("📊 Calculated values:", { total, targetCap, maxCost });
-
-          if (side === "buy") {
-            txResult = isYes
-              ? await buyYesAuto(marketId, amt, targetCap, maxCost)
-              : await buyNoAuto(marketId, amt, targetCap, maxCost);
-          } else {
-            txResult = isYes
-              ? await sellYesAuto(marketId, amt, targetCap, maxCost)
-              : await sellNoAuto(marketId, amt, targetCap, maxCost);
-          }
+          txResult = isYes
+            ? isFirst
+              ? await sellYesAuto(marketId, amt, amt * 10, Math.ceil(amt * 1.1))
+              : await sellYes(marketId, amt)
+            : isFirst
+            ? await sellNoAuto(marketId, amt, amt * 10, Math.ceil(amt * 1.1))
+            : await sellNo(marketId, amt);
         }
-      } catch (err) {
-        console.error("❌ On-chain call failed/was cancelled", err);
-        throw err;
+      } else {
+        const cap = Math.max(amt * 10, 1);
+        const cost = Math.max(Math.ceil(amt * Number(price)), 1);
+        if (side === "buy") {
+          txResult = isYes
+            ? await buyYesAuto(marketId, amt, cap, cost)
+            : await buyNoAuto(marketId, amt, cap, cost);
+        } else {
+          txResult = isYes
+            ? await sellYesAuto(marketId, amt, cap, cost)
+            : await sellNoAuto(marketId, amt, cap, cost);
+        }
       }
 
-      // --- Step 3: confirm tx ---
       const txId = txResult?.txId || txResult?.tx_id || txResult?.txid || null;
-      if (!txId) throw new Error("No txId returned from wallet");
+      if (!txId) throw new Error("No txId");
+      await pollTx(txId, 5000, 60);
+      payload.txId = txId;
 
-      try {
-        const confirmed = await pollTx(txId, 5000, 60);
-        console.log("✅ Transaction confirmed on-chain:", confirmed);
-        payload.txId = txId;
-      } catch (err) {
-        console.error("❌ Transaction failed to confirm:", err);
-        throw err;
-      }
-
-      // --- Step 4: post trade to backend ---
-      const res = await axios.post(`${BACKEND_URL}/api/trades`, payload);
-      return res.data;
+      return (await axios.post(`${BACKEND_URL}/api/trades`, payload)).data;
     },
     {
       onSuccess: () => {
@@ -453,11 +355,8 @@ const PollDetail = () => {
         setAmount("");
         toast.success("Trade placed");
       },
-      onError: (err) => {
-        toast.error(
-          err?.response?.data?.message || err.message || "Trade failed"
-        );
-      },
+      onError: (err) =>
+        toast.error(err?.response?.data?.message || err.message || "Trade failed"),
     }
   );
 
@@ -476,9 +375,7 @@ const PollDetail = () => {
           <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">
             Failed to load poll
           </h2>
-          <p className="text-gray-600 dark:text-gray-400">
-            Please try again later.
-          </p>
+          <p className="text-gray-600 dark:text-gray-400">Please try again later.</p>
         </div>
       </div>
     );
@@ -486,64 +383,90 @@ const PollDetail = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Header */}
+      {/* Header con miniatura grande alineada al bloque del título */}
       <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex-1">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="px-2 py-1 bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300 text-xs font-medium rounded">
-                  {poll.category}
-                </span>
-                <span className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs font-medium rounded">
-                  {poll.subCategory}
-                </span>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
+          <div className="flex items-center justify-between gap-4">
+            {/* Izquierda: thumb + info */}
+            <div className="flex-1 min-w-0 flex items-center gap-4">
+              <div className="header-thumb header-thumb--lg">
+                {poll.image ? (
+                  <img
+                    src={poll.image}
+                    alt={poll.title}
+                    className="w-full h-full object-cover rounded-md"
+                  />
+                ) : (
+                  <div className="w-full h-full rounded-md bg-gray-200 dark:bg-gray-700" />
+                )}
               </div>
-              <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">
-                {poll.title}
-              </h1>
-              <p className="text-gray-600 dark:text-gray-400 max-w-3xl">
-                {poll.description}
-              </p>
+
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2 mb-2">
+                  <span className="pill">{poll.category}</span>
+                  {poll.subCategory && <span className="pill">{poll.subCategory}</span>}
+                </div>
+                <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 text-balance">
+                  {poll.title}
+                </h1>
+                {poll.description && (
+                  <p className="mt-1 text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
+                    {poll.description}
+                  </p>
+                )}
+                <div className="mt-3 flex items-center gap-2">
+                  <a href={`/poll/${poll._id}`} className="btn-outline btn-sm" title="Market link">
+                    Market link
+                  </a>
+                  <button className="btn-outline btn-sm">Add to watchlist</button>
+                </div>
+              </div>
             </div>
-            <div className="text-right min-w-[160px]">
-              <div className="text-sm text-gray-500 dark:text-gray-400 flex items-center justify-end gap-2">
+
+            {/* Derecha: meta */}
+            <div className="shrink-0 text-right">
+              <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center justify-end gap-2">
                 <FaClock className="w-4 h-4" />
                 <span>{timeRemaining}</span>
               </div>
-              <div className="text-sm text-gray-500 dark:text-gray-400 flex items-center justify-end gap-2 mt-1">
+              <div className="mt-2 text-xs text-gray-500 dark:text-gray-400 flex items-center justify-end gap-2">
                 <FaChartLine className="w-4 h-4" />
                 <span>${poll.totalVolume?.toLocaleString() || "0"}</span>
+              </div>
+              <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">Ends</div>
+              <div className="text-sm text-gray-900 dark:text-gray-100">
+                {new Date(poll.endDate).toLocaleString()}
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Content */}
+      {/* Contenido */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left: Chart, Image, Options & Details */}
+        {/* Columna izquierda */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Advanced chart */}
-          {poll && poll.options && poll.options.length > 0 && (
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-soft p-4">
-              <div className="text-sm text-gray-700 dark:text-gray-300 mb-2">
-                <span>Market Progress</span>
+          {/* Gráfico */}
+          {poll?.options?.length > 0 && (
+            <div className="section-card p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-sm text-gray-700 dark:text-gray-300">Price history</span>
+                <div className="tabs ml-auto">
+                  {["Day", "Week", "Month", "Year", "All"].map((r) => (
+                    <button key={r} className={`tab ${r === "All" ? "tab-active" : ""}`}>
+                      {r}
+                    </button>
+                  ))}
+                </div>
                 {contractLoading && (
-                  <span className="ml-2 text-xs text-gray-500">
-                    Reading on-chain...
-                  </span>
+                  <span className="ml-2 text-xs text-gray-500">Reading on-chain…</span>
                 )}
               </div>
               <div className="w-full h-72">
                 <ResponsiveContainer width="100%" height="100%">
-                  {/* ...existing chart code... */}
                   <LineChart
                     data={(() => {
-                      // ...existing code...
-                      const all =
-                        (liveTrades.length ? liveTrades : data?.tradeHistory) ||
-                        [];
+                      const all = (liveTrades.length ? liveTrades : data?.tradeHistory) || [];
                       const grouped = {};
                       all
                         .slice()
@@ -555,10 +478,7 @@ const PollDetail = () => {
                           if (!grouped[key]) grouped[key] = [];
                           grouped[key].push(t);
                         });
-                      const optionVolumes = Array.from(
-                        { length: poll.options.length },
-                        () => 1
-                      );
+                      const optionVolumes = Array.from({ length: poll.options.length }, () => 1);
                       const points = [];
                       const keys = Object.keys(grouped).sort();
                       keys.forEach((k) => {
@@ -568,15 +488,10 @@ const PollDetail = () => {
                         });
                         const total = optionVolumes.reduce((s, v) => s + v, 0);
                         const point = {
-                          time: new Date(k).toLocaleTimeString([], {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          }),
+                          time: new Date(k).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
                         };
                         poll.options.forEach((opt, idx) => {
-                          point[`o${idx}`] = Math.round(
-                            (optionVolumes[idx] / total) * 100
-                          );
+                          point[`o${idx}`] = Math.round((optionVolumes[idx] / total) * 100);
                         });
                         points.push(point);
                       });
@@ -595,16 +510,7 @@ const PollDetail = () => {
                         type="monotone"
                         dataKey={`o${idx}`}
                         name={opt.text}
-                        stroke={
-                          [
-                            "#3B82F6",
-                            "#F59E0B",
-                            "#10B981",
-                            "#EF4444",
-                            "#8B5CF6",
-                            "#EC4899",
-                          ][idx % 6]
-                        }
+                        stroke={["#3B82F6", "#F59E0B", "#10B981", "#EF4444", "#8B5CF6", "#EC4899"][idx % 6]}
                         dot={false}
                         strokeWidth={2}
                       />
@@ -615,307 +521,173 @@ const PollDetail = () => {
             </div>
           )}
 
-          {poll.image && (
-            <img
-              src={poll.image}
-              alt={poll.title}
-              className="w-full h-64 object-cover rounded-lg"
-            />
-          )}
-
-          {/* Options */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-soft p-6">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-              Options
-            </h3>
-            <div className="space-y-3">
-              {poll.options.map((opt, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => setSelectedOptionIndex(idx)}
-                  className={`w-full flex items-center justify-between p-4 rounded-lg border transition-colors ${
-                    selectedOptionIndex === idx
-                      ? "border-primary-400 bg-yellow-600 dark:bg-primary-950/40"
-                      : "border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"
-                  }`}
-                >
-                  <span className="text-gray-900 dark:text-gray-100">
-                    {opt.text}
-                  </span>
-                  <span className="text-gray-900 dark:text-gray-100 font-semibold">
-                    {opt.percentage}%
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Trade panel: show after options for small screens */}
-          <div className="block lg:hidden">
-            {/* If poll resolved, show redeem/lose/ended logic; otherwise show trade panel */}
-            {poll.isResolved ? (
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-soft p-6 mt-6">
-                <Redeem
-                  contractData={contractData}
-                  user={user}
-                  userTrades={userTrades}
-                  poll={poll}
-                  isEnded={isEnded}
-                  didUserWin={didUserWin}
-                  redeemMutation={redeemMutation}
-                  claimed={claimed}
-                  formatCurrency={formatCurrency}
-                />
-              </div>
-            ) : (
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-soft p-6 mt-6">
-                {/* ...existing mobile trade panel preserved... */}
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                    Trade
-                  </h3>
-                  <div className="flex items-center gap-3">
-                    <div className="inline-flex rounded-md overflow-hidden border border-gray-200 dark:border-gray-700">
-                      <button
-                        onClick={() => setSide("buy")}
-                        className={`px-3 py-1 text-sm ${
-                          side === "buy"
-                            ? "bg-emerald-600 text-white"
-                            : "bg-transparent text-gray-700 dark:text-gray-300"
-                        }`}
-                      >
-                        Buy
-                      </button>
-                      <button
-                        onClick={() => setSide("sell")}
-                        className={`px-3 py-1 text-sm ${
-                          side === "sell"
-                            ? "bg-red-600 text-white"
-                            : "bg-transparent text-gray-700 dark:text-gray-300"
-                        }`}
-                      >
-                        Sell
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Order type toggle */}
-                  <div className="ml-3 inline-flex rounded-md overflow-hidden border border-gray-200 dark:border-gray-700">
-                    <button
-                      onClick={() => setOrderType("market")}
-                      className={`px-2 py-1 text-xs ${
-                        orderType === "market"
-                          ? "bg-gray-900 text-white"
-                          : "bg-transparent text-gray-700 dark:text-gray-300"
-                      }`}
-                    >
-                      Market
-                    </button>
-                    <button
-                      onClick={() => setOrderType("limit")}
-                      className={`px-2 py-1 text-xs ${
-                        orderType === "limit"
-                          ? "bg-gray-900 text-white"
-                          : "bg-transparent text-gray-700 dark:text-gray-300"
-                      }`}
-                    >
-                      Limit
-                    </button>
-                  </div>
-                </div>
-
-                {/* Option selector */}
-                <label className="block text-xs text-gray-500 dark:text-gray-400 mb-2">
-                  Option
-                </label>
-                <div className="space-y-2 mb-4">
-                  {poll.options.map((opt, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => setSelectedOptionIndex(idx)}
-                      className={`w-full flex items-center justify-between p-3 rounded border text-sm ${
-                        selectedOptionIndex === idx
-                          ? "border-primary-400 bg-yellow-600 dark:bg-primary-950/40 text-gray-900 dark:text-gray-100"
-                          : "border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300"
-                      }`}
-                    >
-                      <span>{opt.text}</span>
-                      <span className="font-semibold">{opt.percentage}%</span>
-                    </button>
-                  ))}
-                </div>
-
-                {/* Inputs */}
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1">
-                      Amount
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={amount}
-                      onChange={(e) => setAmount(e.target.value)}
-                      placeholder="0.00"
-                      className="input w-full"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1">
-                      Price
-                    </label>
-                    {orderType === "market" ? (
-                      <input
-                        type="text"
-                        readOnly
-                        value={marketPrice}
-                        className="input w-full bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                      />
-                    ) : (
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={price}
-                        onChange={(e) => setPrice(e.target.value)}
-                        placeholder="0.00"
-                        className="input w-full"
-                      />
-                    )}
-                  </div>
-                  <button
-                    onClick={() => tradeMutation.mutate()}
-                    disabled={
-                      !amount || Number(amount) <= 0 || tradeMutation.isLoading
-                    }
-                    className={`w-full ${
-                      side === "buy" ? "btn-primary" : "btn-danger"
-                    } disabled:opacity-50 disabled:cursor-not-allowed`}
-                  >
-                    {tradeMutation.isLoading
-                      ? "Placing order..."
-                      : `${side === "buy" ? "Buy" : "Sell"} ${
-                          poll.options[selectedOptionIndex]?.text || ""
-                        }`}
+          {/* Opciones (alineación profesional) */}
+          <div className="section-card p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="section-title">Options</h3>
+              <div className="flex items-center gap-2">
+                <div className="tabs">
+                  <button onClick={() => setSide("buy")} className={`tab ${side === "buy" ? "tab-active" : ""}`}>
+                    Buy
+                  </button>
+                  <button onClick={() => setSide("sell")} className={`tab ${side === "sell" ? "tab-active" : ""}`}>
+                    Sell
                   </button>
                 </div>
+                <div className="tabs">
+                  <button
+                    onClick={() => setOrderType("market")}
+                    className={`tab ${orderType === "market" ? "tab-active" : ""}`}
+                  >
+                    Market
+                  </button>
+                  <button
+                    onClick={() => setOrderType("limit")}
+                    className={`tab ${orderType === "limit" ? "tab-active" : ""}`}
+                  >
+                    Limit
+                  </button>
+                </div>
+              </div>
+            </div>
 
-                {/* Order book (if available) */}
-                {(liveOrderBook || data?.orderBook) && (
-                  <div className="mt-6">
-                    <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2">
-                      Order Book
-                    </h4>
-                    <div className="grid grid-cols-2 gap-3 text-sm">
-                      <div>
-                        <div className="text-emerald-600 mb-1">Buys</div>
-                        <div className="space-y-1">
-                          {(liveOrderBook || data?.orderBook)?.buyOrders?.map(
-                            (o) => (
-                              <div
-                                key={o._id}
-                                className="flex justify-between text-gray-700 dark:text-gray-300"
-                              >
-                                <span>{o.amount}</span>
-                                <span>{o.price}</span>
-                              </div>
-                            )
-                          )}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-red-500 mb-1">Sells</div>
-                        <div className="space-y-1">
-                          {(liveOrderBook || data?.orderBook)?.sellOrders?.map(
-                            (o) => (
-                              <div
-                                key={o._id}
-                                className="flex justify-between text-gray-700 dark:text-gray-300"
-                              >
-                                <span>{o.amount}</span>
-                                <span>{o.price}</span>
-                              </div>
-                            )
-                          )}
-                        </div>
-                      </div>
+            <div className="space-y-2">
+              {poll.options.map((opt, idx) => (
+                <div
+                  key={idx}
+                  className={`option-row grid grid-cols-[1fr_64px_auto_auto] items-center gap-3 ${
+                    selectedOptionIndex === idx
+                      ? "border-primary-400 bg-yellow-600/10 dark:bg-primary-950/30"
+                      : ""
+                  }`}
+                >
+                  {/* Nombre */}
+                  <div className="option-left">
+                    <div className="option-icon" />
+                    <div className="min-w-0">
+                      <div className="option-name">{opt.text}</div>
                     </div>
                   </div>
-                )}
+
+                  {/* % alineado a la derecha y ancho fijo */}
+                  <div className="option-pct">{opt.percentage ?? 0}%</div>
+
+                  {/* Input + CTA */}
+                  <div className="option-cta">
+                    <NumberInput
+                      value={selectedOptionIndex === idx ? amount : ""}
+                      onChange={(v) => {
+                        if (selectedOptionIndex !== idx) setSelectedOptionIndex(idx);
+                        setAmount(v);
+                      }}
+                      step={1}
+                      min={0}
+                      className="w-28 h-9"
+                    />
+                  </div>
+                  <div className="flex justify-end">
+                    <button
+                      className="btn-primary btn-sm"
+                      onClick={() => {
+                        if (selectedOptionIndex !== idx) setSelectedOptionIndex(idx);
+                        tradeMutation.mutate();
+                      }}
+                      disabled={!amount || Number(amount) <= 0 || tradeMutation.isLoading}
+                    >
+                      {tradeMutation.isLoading ? "…" : "Predict"}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Precio ref o limit */}
+            {orderType === "market" ? (
+              <div className="mt-3 text-xs text-gray-500 dark:text-gray-400">
+                Ref price:{" "}
+                <span className="text-gray-900 dark:text-gray-100">{marketPrice}</span>
+              </div>
+            ) : (
+              <div className="mt-3">
+                <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1">Price</label>
+                <NumberInput value={price} onChange={setPrice} step={0.01} min={0} className="w-40" />
               </div>
             )}
           </div>
 
-          {/* Trade history */}
+          {/* Resolution */}
+          <div className="section-card p-4">
+            <h4 className="section-title mb-2">Resolution</h4>
+            {poll.resolutionLink && (
+              <a
+                href={poll.resolutionLink}
+                className="text-sm text-primary-600 dark:text-primary-400 underline"
+              >
+                {poll.resolutionLink}
+              </a>
+            )}
+            <p className="text-sm text-gray-700 dark:text-gray-300 mt-1">
+              {poll.resolutionNote || "The market will be resolved based on the linked source."}
+            </p>
+          </div>
+
+          {/* Tabs visuales */}
+          <div className="flex items-center justify-between mt-6 mb-3">
+            <div className="tabs">
+              <button className="tab tab-active">Comments</button>
+              <button className="tab">Top holders</button>
+              <button className="tab">Transactions</button>
+            </div>
+          </div>
+
+          {/* Historial */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-soft p-6">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
               Recent Trades
             </h3>
 
             {liveTrades.length === 0 ? (
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                No trades yet.
-              </p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">No trades yet.</p>
             ) : (
-              <>
-                <div className="overflow-x-auto">
-                  <table className="min-w-full text-sm">
-                    <thead>
-                      <tr className="text-left text-gray-500 dark:text-gray-400">
-                        <th className="py-2 pr-4">Time</th>
-                        <th className="py-2 pr-4">Side</th>
-                        <th className="py-2 pr-4">Option</th>
-                        <th className="py-2 pr-4">Amount</th>
-                        <th className="py-2 pr-4">Price</th>
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-gray-500 dark:text-gray-400">
+                      <th className="py-2 pr-4">Time</th>
+                      <th className="py-2 pr-4">Side</th>
+                      <th className="py-2 pr-4">Option</th>
+                      <th className="py-2 pr-4">Amount</th>
+                      <th className="py-2 pr-4">Price</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {liveTrades.slice(0, 15).map((t) => (
+                      <tr key={t._id} className="border-t border-gray-100 dark:border-gray-700">
+                        <td className="py-2 pr-4 text-gray-700 dark:text-gray-300">
+                          {new Date(t.createdAt).toLocaleString()}
+                        </td>
+                        <td className={`py-2 pr-4 ${t.type === "buy" ? "text-emerald-600" : "text-red-500"}`}>
+                          {t.type.toUpperCase()}
+                        </td>
+                        <td className="py-2 pr-4 text-gray-700 dark:text-gray-300">
+                          {poll.options[t.optionIndex]?.text || t.optionIndex}
+                        </td>
+                        <td className="py-2 pr-4 text-gray-700 dark:text-gray-300">{t.amount}</td>
+                        <td className="py-2 pr-4 text-gray-700 dark:text-gray-300">{t.price}</td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      {liveTrades.slice(0, 15).map((t) => (
-                        <tr
-                          key={t._id}
-                          className="border-t border-gray-100 dark:border-gray-700"
-                        >
-                          <td className="py-2 pr-4 text-gray-700 dark:text-gray-300">
-                            {new Date(t.createdAt).toLocaleString()}
-                          </td>
-                          <td
-                            className={`py-2 pr-4 ${
-                              t.type === "buy"
-                                ? "text-emerald-600"
-                                : "text-red-500"
-                            }`}
-                          >
-                            {t.type.toUpperCase()}
-                          </td>
-                          <td className="py-2 pr-4 text-gray-700 dark:text-gray-300">
-                            {poll.options[t.optionIndex]?.text || t.optionIndex}
-                          </td>
-                          <td className="py-2 pr-4 text-gray-700 dark:text-gray-300">
-                            {t.amount}
-                          </td>
-                          <td className="py-2 pr-4 text-gray-700 dark:text-gray-300">
-                            {t.price}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
 
-          {/* Comments */}
           <CommentsSection pollId={poll._id} />
         </div>
 
-        {/* Right: Trading panel for large screens */}
+        {/* Columna derecha */}
         <div className="hidden lg:block lg:col-span-1">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-soft p-6 sticky top-24">
-            {/* contract outcome */}
-
-            {/* If poll is resolved, show redeem/lose/ended logic; otherwise show trade panel */}
             {poll.isResolved ? (
               <Redeem
                 contractData={contractData}
@@ -931,37 +703,18 @@ const PollDetail = () => {
             ) : (
               <>
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                    Trade
-                  </h3>
-                  <div className="inline-flex rounded-md overflow-hidden border border-gray-200 dark:border-gray-700">
-                    <button
-                      onClick={() => setSide("buy")}
-                      className={`px-3 py-1 text-sm ${
-                        side === "buy"
-                          ? "bg-emerald-600 text-white"
-                          : "bg-transparent text-gray-700 dark:text-gray-300"
-                      }`}
-                    >
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Trade</h3>
+                  <div className="tabs">
+                    <button onClick={() => setSide("buy")} className={`tab ${side === "buy" ? "tab-active" : ""}`}>
                       Buy
                     </button>
-                    <button
-                      onClick={() => setSide("sell")}
-                      className={`px-3 py-1 text-sm ${
-                        side === "sell"
-                          ? "bg-red-600 text-white"
-                          : "bg-transparent text-gray-700 dark:text-gray-300"
-                      }`}
-                    >
+                    <button onClick={() => setSide("sell")} className={`tab ${side === "sell" ? "tab-active" : ""}`}>
                       Sell
                     </button>
                   </div>
                 </div>
 
-                {/* Option selector */}
-                <label className="block text-xs text-gray-500 dark:text-gray-400 mb-2">
-                  Option
-                </label>
+                <label className="block text-xs text-gray-500 dark:text-gray-400 mb-2">Option</label>
                 <div className="space-y-2 mb-4">
                   {poll.options.map((opt, idx) => (
                     <button
@@ -979,125 +732,71 @@ const PollDetail = () => {
                   ))}
                 </div>
 
-                {/* Order type toggle for large screen panel */}
                 <div className="flex justify-end mb-4">
-                  <div className="inline-flex rounded-md overflow-hidden border border-gray-200 dark:border-gray-700">
+                  <div className="tabs">
                     <button
                       onClick={() => setOrderType("market")}
-                      className={`px-2 py-1 text-xs ${
-                        orderType === "market"
-                          ? "bg-gray-900 text-white"
-                          : "bg-transparent text-gray-700 dark:text-gray-300"
-                      }`}
+                      className={`tab ${orderType === "market" ? "tab-active" : ""}`}
                     >
                       Market
                     </button>
                     <button
                       onClick={() => setOrderType("limit")}
-                      className={`px-2 py-1 text-xs ${
-                        orderType === "limit"
-                          ? "bg-gray-900 text-white"
-                          : "bg-transparent text-gray-700 dark:text-gray-300"
-                      }`}
+                      className={`tab ${orderType === "limit" ? "tab-active" : ""}`}
                     >
                       Limit
                     </button>
                   </div>
                 </div>
 
-                {/* Inputs */}
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1">
-                      Amount
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={amount}
-                      onChange={(e) => setAmount(e.target.value)}
-                      placeholder="0.00"
-                      className="input w-full"
-                    />
+                    <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1">Amount</label>
+                    <NumberInput value={amount} onChange={setAmount} step={1} min={0} />
                   </div>
                   <div>
-                    <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1">
-                      Price
-                    </label>
+                    <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1">Price</label>
                     {orderType === "market" ? (
-                      <input
-                        type="text"
-                        readOnly
-                        value={marketPrice}
-                        className="input w-full bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                      />
+                      <NumberInput value={String(marketPrice)} onChange={() => {}} readOnly />
                     ) : (
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={price}
-                        onChange={(e) => setPrice(e.target.value)}
-                        placeholder="0.00"
-                        className="input w-full"
-                      />
+                      <NumberInput value={price} onChange={setPrice} step={0.01} min={0} />
                     )}
                   </div>
                   <button
                     onClick={() => tradeMutation.mutate()}
-                    disabled={
-                      !amount || Number(amount) <= 0 || tradeMutation.isLoading
-                    }
-                    className={`w-full ${
-                      side === "buy" ? "btn-primary" : "btn-danger"
-                    } disabled:opacity-50 disabled:cursor-not-allowed`}
+                    disabled={!amount || Number(amount) <= 0 || tradeMutation.isLoading}
+                    className={`w-full ${side === "buy" ? "btn-primary" : "btn-danger"} disabled:opacity-50 disabled:cursor-not-allowed`}
                   >
                     {tradeMutation.isLoading
                       ? "Placing order..."
-                      : `${side === "buy" ? "Buy" : "Sell"} ${
-                          poll.options[selectedOptionIndex]?.text || ""
-                        }`}
+                      : `${side === "buy" ? "Buy" : "Sell"} ${poll.options[selectedOptionIndex]?.text || ""}`}
                   </button>
                 </div>
 
-                {/* Order book (if available) */}
                 {(liveOrderBook || data?.orderBook) && (
                   <div className="mt-6">
-                    <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2">
-                      Order Book
-                    </h4>
+                    <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2">Order Book</h4>
                     <div className="grid grid-cols-2 gap-3 text-sm">
                       <div>
                         <div className="text-emerald-600 mb-1">Buys</div>
                         <div className="space-y-1">
-                          {(liveOrderBook || data?.orderBook)?.buyOrders?.map(
-                            (o) => (
-                              <div
-                                key={o._id}
-                                className="flex justify-between text-gray-700 dark:text-gray-300"
-                              >
-                                <span>{o.amount}</span>
-                                <span>{o.price}</span>
-                              </div>
-                            )
-                          )}
+                          {(liveOrderBook || data?.orderBook)?.buyOrders?.map((o) => (
+                            <div key={o._id} className="flex justify-between text-gray-700 dark:text-gray-300">
+                              <span>{o.amount}</span>
+                              <span>{o.price}</span>
+                            </div>
+                          ))}
                         </div>
                       </div>
                       <div>
                         <div className="text-red-500 mb-1">Sells</div>
                         <div className="space-y-1">
-                          {(liveOrderBook || data?.orderBook)?.sellOrders?.map(
-                            (o) => (
-                              <div
-                                key={o._id}
-                                className="flex justify-between text-gray-700 dark:text-gray-300"
-                              >
-                                <span>{o.amount}</span>
-                                <span>{o.price}</span>
-                              </div>
-                            )
-                          )}
+                          {(liveOrderBook || data?.orderBook)?.sellOrders?.map((o) => (
+                            <div key={o._id} className="flex justify-between text-gray-700 dark:text-gray-300">
+                              <span>{o.amount}</span>
+                              <span>{o.price}</span>
+                            </div>
+                          ))}
                         </div>
                       </div>
                     </div>
@@ -1105,6 +804,26 @@ const PollDetail = () => {
                 )}
               </>
             )}
+          </div>
+        </div>
+
+        {/* Sidebar “Recently visited” opcional */}
+        <div className="hidden lg:block lg:col-span-1">
+          <div className="mt-6 section-card p-4 sticky top-[calc(24px+520px)]">
+            <h4 className="section-title mb-3">Recently visited</h4>
+            <div className="space-y-3">
+              {(data?.recent || []).slice(0, 5).map((m) => (
+                <a key={m._id} href={`/poll/${m._id}`} className="flex items-center gap-3 group">
+                  <div className="w-8 h-8 rounded bg-gray-200 dark:bg-gray-700 overflow-hidden" />
+                  <div className="text-sm text-gray-700 dark:text-gray-300 group-hover:underline line-clamp-1">
+                    {m.title}
+                  </div>
+                </a>
+              ))}
+              {(!data?.recent || data.recent.length === 0) && (
+                <div className="text-xs text-gray-500">No recent markets</div>
+              )}
+            </div>
           </div>
         </div>
       </div>
