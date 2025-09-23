@@ -33,9 +33,12 @@ const Navbar = () => {
     const address = getWalletAddress();
     if (address) {
       setWalletAddress(address);
-      loginWithWallet(address);
+      // Only login if not already authenticated with this wallet
+      if (!user || user.walletAddress !== address) {
+        loginWithWallet(address);
+      }
     }
-  }, [loginWithWallet]);
+  }, [loginWithWallet, user]);
 
   const handleConnectWallet = async () => {
     const address = await authenticate();
@@ -78,7 +81,11 @@ const Navbar = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             {/* === LOGO CIRCULAR (no se corta) === */}
-            <Link to="/" className="flex items-center space-x-3 shrink-0" aria-label="BitcoinWorld">
+            <Link
+              to="/"
+              className="flex items-center space-x-3 shrink-0"
+              aria-label="BitcoinWorld"
+            >
               <div className="logo-badge">
                 <img
                   src={logo}
@@ -87,7 +94,9 @@ const Navbar = () => {
                   draggable="false"
                 />
               </div>
-              <span className="text-xl font-bold gradient-text">BitcoinWorld</span>
+              <span className="text-xl font-bold gradient-text">
+                BitcoinWorld
+              </span>
             </Link>
 
             {/* Search (desktop) */}
@@ -119,18 +128,28 @@ const Navbar = () => {
                 className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
                 aria-label="Toggle theme"
               >
-                {isDark ? <FaSun className="w-5 h-5" /> : <FaMoon className="w-5 h-5" />}
+                {isDark ? (
+                  <FaSun className="w-5 h-5" />
+                ) : (
+                  <FaMoon className="w-5 h-5" />
+                )}
               </button>
 
               {/* Auth */}
               {walletAddress ? (
                 <div className="flex items-center space-x-3">
                   {user?.isAdmin ? (
-                    <Link to="/admin" className="btn-outline btn-sm hidden md:inline-flex">
+                    <Link
+                      to="/admin"
+                      className="btn-outline btn-sm hidden md:inline-flex"
+                    >
                       Admin
                     </Link>
                   ) : (
-                    <Link to="/admin-auth" className="btn-outline btn-sm hidden md:inline-flex">
+                    <Link
+                      to="/admin-auth"
+                      className="btn-outline btn-sm hidden md:inline-flex"
+                    >
                       Admin Login
                     </Link>
                   )}
@@ -139,7 +158,9 @@ const Navbar = () => {
                     className="flex items-center space-x-2 text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
                   >
                     <FaUser className="w-4 h-4" />
-                    <span className="hidden sm:block">{truncateAddress(walletAddress)}</span>
+                    <span className="hidden sm:block">
+                      {truncateAddress(walletAddress)}
+                    </span>
                   </Link>
                   <button
                     onClick={handleDisconnect}
@@ -151,7 +172,10 @@ const Navbar = () => {
                 </div>
               ) : (
                 <div className="flex items-center space-x-3">
-                  <Link to="/admin-auth" className="btn-outline btn-sm hidden md:inline-flex">
+                  <Link
+                    to="/admin-auth"
+                    className="btn-outline btn-sm hidden md:inline-flex"
+                  >
                     Admin Login
                   </Link>
                   <button onClick={handleConnectWallet} className="btn-primary">
@@ -165,7 +189,11 @@ const Navbar = () => {
                 className="md:hidden p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
                 aria-label="Toggle menu"
               >
-                {showMobileMenu ? <FaTimes className="w-5 h-5" /> : <FaBars className="w-5 h-5" />}
+                {showMobileMenu ? (
+                  <FaTimes className="w-5 h-5" />
+                ) : (
+                  <FaBars className="w-5 h-5" />
+                )}
               </button>
             </div>
           </div>
@@ -220,7 +248,10 @@ const Navbar = () => {
         )}
       </nav>
 
-      <SearchModal isOpen={showSearchModal} onClose={() => setShowSearchModal(false)} />
+      <SearchModal
+        isOpen={showSearchModal}
+        onClose={() => setShowSearchModal(false)}
+      />
     </>
   );
 };
