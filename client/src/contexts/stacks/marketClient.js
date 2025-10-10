@@ -255,9 +255,10 @@ export async function redeem(marketId) {
 }
 
 // Withdraw surplus funds
-export async function withdrawSurplus() {
+export async function withdrawSurplus(marketId) {
   return contractCall({
     functionName: "withdraw-surplus",
+    functionArgs: [uintCV(marketId)],
   });
 }
 

@@ -168,6 +168,16 @@ const pollSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+    // Has the market's surplus been withdrawn (server-side flag)
+    surplusWithdrawn: {
+      type: Boolean,
+      default: false,
+    },
+    // Last surplus withdraw transaction id (optional, for audit)
+    surplusWithdrawTx: {
+      type: String,
+      default: null,
+    },
   },
   {
     timestamps: true,

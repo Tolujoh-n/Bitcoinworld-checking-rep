@@ -7,7 +7,10 @@ import {
   tokenMint,
   pollTx,
   resolveMarket,
+  addLiquidity,
+  withdrawSurplus,
 } from "../contexts/stacks/marketClient";
+import toast from "react-hot-toast";
 
 const Admin = () => {
   const queryClient = useQueryClient();
@@ -158,6 +161,8 @@ const Admin = () => {
   const [editingPoll, setEditingPoll] = useState(null);
   const [resolvingPoll, setResolvingPoll] = useState(null);
   const [resolveIndex, setResolveIndex] = useState("");
+  const [liquidityModalPoll, setLiquidityModalPoll] = useState(null);
+  const [liquidityAmount, setLiquidityAmount] = useState("");
   const updateMutation = useMutation(
     async ({ id, data }) =>
       (await axios.put(`${BACKEND_URL}/api/admin/polls/${id}`, data)).data,
@@ -202,6 +207,60 @@ const Admin = () => {
       onSuccess: () => {
         setResolvingPoll(null);
         queryClient.invalidateQueries(["admin-polls"]);
+      },
+    }
+  );
+
+  const addLiquidityMutation = useMutation(
+    async ({ id, amount }) => {
+      const poll = (polls?.polls || []).find((p) => p._id === id);
+      if (!poll) throw new Error("Poll not found");
+      if (!poll.marketId) throw new Error("Poll missing marketId");
+      const marketId = Number(poll.marketId);
+      if (!Number.isFinite(marketId)) throw new Error("Invalid marketId");
+      const amt = Number(amount);
+      if (!Number.isFinite(amt) || amt <= 0) throw new Error("Invalid amount");
+
+      const tx = await addLiquidity(marketId, amt);
+      await pollTx(tx.txId);
+      return tx;
+    },
+    {
+      onSuccess: () => {
+        setLiquidityModalPoll(null);
+        setLiquidityAmount("");
+        queryClient.invalidateQueries(["admin-polls"]);
+        toast.success("✅ Liquidity added successfully");
+      },
+      onError: (err) => {
+        toast.error(`❌ Add liquidity failed: ${err?.message || err}`);
+      },
+    }
+  );
+
+  const withdrawSurplusMutation = useMutation(
+    async ({ id }) => {
+      const poll = (polls?.polls || []).find((p) => p._id === id);
+      if (!poll) throw new Error("Poll not found");
+      if (!poll.marketId) throw new Error("Poll missing marketId");
+      const marketId = Number(poll.marketId);
+      if (!Number.isFinite(marketId)) throw new Error("Invalid marketId");
+
+      const tx = await withdrawSurplus(marketId);
+      await pollTx(tx.txId);
+      // After on-chain success, mark on backend as withdrawn
+      await axios.post(`${BACKEND_URL}/api/admin/polls/${id}/withdraw-surplus`, {
+        txid: tx.txId,
+      });
+      return tx;
+    },
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries(["admin-polls"]);
+        toast.success("✅ Surplus withdrawn successfully");
+      },
+      onError: (err) => {
+        toast.error(`❌ Withdraw surplus failed: ${err?.message || err}`);
       },
     }
   );
@@ -304,17 +363,41 @@ const Admin = () => {
                         >
                           Edit
                         </button>
-                        {!p.isResolved && (
+
+                        {/* Add liquidity (if not resolved) or Withdraw surplus (if resolved) */}
+                        {!p.isResolved ? (
                           <button
-                            onClick={() => {
-                              setResolvingPoll(p);
-                              setResolveIndex("");
-                            }}
-                            className="btn-primary btn-sm"
+                            onClick={() => setLiquidityModalPoll(p)}
+                            className="btn-secondary btn-sm"
                           >
-                            Resolve
+                            Add Liquidity
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => withdrawSurplusMutation.mutate({ id: p._id })}
+                            className="btn-secondary btn-sm"
+                            disabled={!!p.surplusWithdrawn || withdrawSurplusMutation.isLoading}
+                          >
+                            {p.surplusWithdrawn ? "Surplus Withdrawn" : "Withdraw Surplus"}
                           </button>
                         )}
+
+                        {/* Resolve button: disabled if already resolved */}
+                        <button
+                          onClick={() => {
+                            if (p.isResolved) {
+                              toast("❗ Poll has already been resolved", { icon: "⚠️" });
+                              return;
+                            }
+                            setResolvingPoll(p);
+                            setResolveIndex("");
+                          }}
+                          className={`btn-primary btn-sm ${p.isResolved ? "opacity-50 cursor-not-allowed" : ""}`}
+                          disabled={p.isResolved}
+                        >
+                          Resolve
+                        </button>
+
                         <button
                           onClick={() => deleteMutation.mutate(p._id)}
                           className="btn-danger btn-sm"
@@ -1170,6 +1253,57 @@ const Admin = () => {
                     disabled={resolveMutation.isLoading || resolveIndex === ""}
                   >
                     Resolve
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Add Liquidity modal */}
+        {liquidityModalPoll && (
+          <div className="modal-overlay" onClick={() => setLiquidityModalPoll(null)}>
+            <div
+              className="modal-content max-w-md"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="p-6">
+                <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">
+                  Add Liquidity
+                </h2>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                  Market ID: {liquidityModalPoll.marketId || "(none)"}
+                </p>
+                <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1">
+                  Amount
+                </label>
+                <input
+                  className="input w-full"
+                  value={liquidityAmount}
+                  onChange={(e) => setLiquidityAmount(e.target.value)}
+                  placeholder="Enter amount (sats)"
+                />
+                <div className="flex justify-end gap-2 mt-6">
+                  <button
+                    className="btn-outline"
+                    onClick={() => {
+                      setLiquidityModalPoll(null);
+                      setLiquidityAmount("");
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    className="btn-primary"
+                    onClick={() =>
+                      addLiquidityMutation.mutate({
+                        id: liquidityModalPoll._id,
+                        amount: liquidityAmount,
+                      })
+                    }
+                    disabled={addLiquidityMutation.isLoading || !liquidityAmount}
+                  >
+                    Add Liquidity
                   </button>
                 </div>
               </div>

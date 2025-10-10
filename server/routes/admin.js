@@ -199,6 +199,35 @@ router.post("/polls/:id/resolve", adminAuth, async (req, res) => {
   }
 });
 
+// @route   POST /api/admin/polls/:id/withdraw-surplus
+// @desc    Mark surplus withdrawn for a poll (admin)
+// @access  Private (Admin)
+router.post("/polls/:id/withdraw-surplus", adminAuth, async (req, res) => {
+  try {
+    const { txid } = req.body;
+    const poll = await Poll.findById(req.params.id);
+    if (!poll) return res.status(404).json({ message: "Poll not found" });
+
+    poll.surplusWithdrawn = true;
+    if (txid) poll.surplusWithdrawTx = txid;
+    await poll.save();
+
+    // Emit live update
+    const io = req.app.get("io");
+    if (io) {
+      io.to(`poll-${req.params.id}`).emit("poll-updated", {
+        pollId: req.params.id,
+        poll,
+      });
+    }
+
+    res.json({ message: "Surplus marked withdrawn", poll });
+  } catch (error) {
+    console.error("Admin withdraw surplus error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
 // @route   GET /api/admin/users
 // @desc    Get all users for admin management
 // @access  Private (Admin)
