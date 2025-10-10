@@ -276,6 +276,21 @@ export async function unpause() {
   });
 }
 
+
+// lock fees config
+export async function lockfees() {
+  return contractCall({
+    functionName: "lock-fees-config",
+  });
+}
+
+// set max trade
+export async function maxtrade(maxtradeamount) {
+  return contractCall({
+    functionName: "set-max-trade",
+    functionArgs: [uintCV(maxtradeamount)],
+  });
+}
 // ------------------- TOKEN HELPERS -------------------
 export async function tokenMint(tokenName, amount, recipient) {
   return contractCall({

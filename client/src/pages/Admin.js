@@ -9,6 +9,10 @@ import {
   resolveMarket,
   addLiquidity,
   withdrawSurplus,
+  pause,
+  unpause,
+  lockfees,
+  maxtrade,
 } from "../contexts/stacks/marketClient";
 import toast from "react-hot-toast";
 
@@ -49,6 +53,12 @@ const Admin = () => {
     async () =>
       (await axios.get(`${BACKEND_URL}/api/admin/polls?page=${page}&limit=10`))
         .data
+  );
+
+  // Fetch global market status (paused?)
+  const { data: marketStatus, refetch: refetchMarketStatus } = useQuery(
+    ["market-status"],
+    async () => (await axios.get(`${BACKEND_URL}/api/market/status`)).data
   );
 
   const createMutation = useMutation(
@@ -163,6 +173,8 @@ const Admin = () => {
   const [resolveIndex, setResolveIndex] = useState("");
   const [liquidityModalPoll, setLiquidityModalPoll] = useState(null);
   const [liquidityAmount, setLiquidityAmount] = useState("");
+  const [maxTradeModalOpen, setMaxTradeModalOpen] = useState(false);
+  const [maxTradeAmount, setMaxTradeAmount] = useState("");
   const updateMutation = useMutation(
     async ({ id, data }) =>
       (await axios.put(`${BACKEND_URL}/api/admin/polls/${id}`, data)).data,
@@ -237,6 +249,67 @@ const Admin = () => {
       },
     }
   );
+
+  // Admin market management mutations
+  const pauseMutation = useMutation(async () => {
+    const tx = await pause();
+    await pollTx(tx.txId);
+    return tx;
+  }, {
+    onSuccess: () => {
+      toast.success('✅ Market paused successfully');
+      queryClient.invalidateQueries(['admin-polls']);
+    },
+    onError: (err) => {
+      toast.error(`❌ Pause failed: ${err?.message || err}`);
+    }
+  });
+
+  const unpauseMutation = useMutation(async () => {
+    const tx = await unpause();
+    await pollTx(tx.txId);
+    return tx;
+  }, {
+    onSuccess: () => {
+      toast.success('✅ Market unpaused successfully');
+      queryClient.invalidateQueries(['admin-polls']);
+    },
+    onError: (err) => {
+      toast.error(`❌ Unpause failed: ${err?.message || err}`);
+    }
+  });
+
+  const lockFeesMutation = useMutation(async () => {
+    const tx = await lockfees();
+    await pollTx(tx.txId);
+    return tx;
+  }, {
+    onSuccess: () => {
+      toast.success('✅ Fees locked successfully');
+      queryClient.invalidateQueries(['admin-polls']);
+    },
+    onError: (err) => {
+      toast.error(`❌ Lock fees failed: ${err?.message || err}`);
+    }
+  });
+
+  const setMaxTradeMutation = useMutation(async ({ amount }) => {
+    const amt = Number(amount);
+    if (!Number.isFinite(amt) || amt < 0) throw new Error('Invalid amount');
+    const tx = await maxtrade(amt);
+    await pollTx(tx.txId);
+    return tx;
+  }, {
+    onSuccess: () => {
+      setMaxTradeModalOpen(false);
+      setMaxTradeAmount('');
+      toast.success('✅ Max trade set successfully');
+      queryClient.invalidateQueries(['admin-polls']);
+    },
+    onError: (err) => {
+      toast.error(`❌ Set max trade failed: ${err?.message || err}`);
+    }
+  });
 
   const withdrawSurplusMutation = useMutation(
     async ({ id }) => {
@@ -469,6 +542,83 @@ const Admin = () => {
               Next
             </button>
           </div>
+        </div>
+
+        {/* Admin market management buttons */}
+        <div className="mt-4 flex flex-wrap gap-2 items-center">
+          {/* Pause / Unpause single toggle */}
+          {marketStatus?.paused ? (
+            <button
+              className={`btn-secondary btn-sm ${unpauseMutation.isLoading ? "opacity-50 cursor-not-allowed" : ""}`}
+              onClick={async () => {
+                try {
+                  const tx = await unpause();
+                  await pollTx(tx.txId);
+                  // update backend
+                  await axios.post(`${BACKEND_URL}/api/market/admin/pause`, {
+                    paused: false,
+                    txid: tx.txId,
+                  });
+                  toast.success('✅ Market unpaused');
+                  refetchMarketStatus();
+                } catch (err) {
+                  toast.error(`❌ Unpause failed: ${err?.message || err}`);
+                }
+              }}
+              disabled={unpauseMutation.isLoading}
+            >
+              {unpauseMutation.isLoading ? 'Unpausing...' : 'Unpause Market'}
+            </button>
+          ) : (
+            <button
+              className={`btn-secondary btn-sm ${pauseMutation.isLoading ? "opacity-50 cursor-not-allowed" : ""}`}
+              onClick={async () => {
+                try {
+                  const tx = await pause();
+                  await pollTx(tx.txId);
+                  // update backend
+                  await axios.post(`${BACKEND_URL}/api/market/admin/pause`, {
+                    paused: true,
+                    txid: tx.txId,
+                  });
+                  toast.success('✅ Market paused');
+                  refetchMarketStatus();
+                } catch (err) {
+                  toast.error(`❌ Pause failed: ${err?.message || err}`);
+                }
+              }}
+              disabled={pauseMutation.isLoading}
+            >
+              {pauseMutation.isLoading ? 'Pausing...' : 'Pause Market'}
+            </button>
+          )}
+
+          <button className="btn-outline btn-sm">Set Fees</button>
+
+          <button className="btn-outline btn-sm">Set Fee Recipients</button>
+
+          <button
+            className="btn-secondary btn-sm"
+            onClick={async () => {
+              try {
+                const tx = await lockfees();
+                await pollTx(tx.txId);
+                toast.success('✅ Fees locked');
+              } catch (err) {
+                toast.error(`❌ Lock fees failed: ${err?.message || err}`);
+              }
+            }}
+            disabled={lockFeesMutation.isLoading}
+          >
+            {lockFeesMutation.isLoading ? 'Locking...' : 'Lock Fees'}
+          </button>
+
+          <button
+            className="btn-secondary btn-sm"
+            onClick={() => setMaxTradeModalOpen(true)}
+          >
+            Set Max Trade
+          </button>
         </div>
 
         {/* Create modal */}
@@ -1346,6 +1496,49 @@ const Admin = () => {
                     disabled={addLiquidityMutation.isLoading || !liquidityAmount}
                   >
                     Add Liquidity
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Set Max Trade modal */}
+        {maxTradeModalOpen && (
+          <div className="modal-overlay" onClick={() => setMaxTradeModalOpen(false)}>
+            <div
+              className="modal-content max-w-md"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="p-6">
+                <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">
+                  Set Max Trade
+                </h2>
+                <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1">
+                  Amount
+                </label>
+                <input
+                  className="input w-full"
+                  value={maxTradeAmount}
+                  onChange={(e) => setMaxTradeAmount(e.target.value)}
+                  placeholder="Enter max trade amount (sats)"
+                />
+                <div className="flex justify-end gap-2 mt-6">
+                  <button
+                    className="btn-outline"
+                    onClick={() => {
+                      setMaxTradeModalOpen(false);
+                      setMaxTradeAmount('');
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    className="btn-primary"
+                    onClick={() => setMaxTradeMutation.mutate({ amount: maxTradeAmount })}
+                    disabled={setMaxTradeMutation.isLoading || !maxTradeAmount}
+                  >
+                    {setMaxTradeMutation.isLoading ? 'Setting...' : 'Set Max Trade'}
                   </button>
                 </div>
               </div>

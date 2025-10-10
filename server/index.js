@@ -58,6 +58,7 @@ app.use("/api/admin", require("./routes/admin"));
 app.use("/api/trades", require("./routes/trades"));
 app.use("/api/comments", require("./routes/comments"));
 app.use("/api/stacks", require("./routes/stacks"));
+app.use("/api/market", require("./routes/market"));
 
 // Socket.io for real-time updates
 io.on("connection", (socket) => {
