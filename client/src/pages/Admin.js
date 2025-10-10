@@ -249,13 +249,51 @@ const Admin = () => {
       const tx = await withdrawSurplus(marketId);
       await pollTx(tx.txId);
       // After on-chain success, mark on backend as withdrawn
-      await axios.post(`${BACKEND_URL}/api/admin/polls/${id}/withdraw-surplus`, {
-        txid: tx.txId,
-      });
-      return tx;
+      const res = await axios.post(
+        `${BACKEND_URL}/api/admin/polls/${id}/withdraw-surplus`,
+        {
+          txid: tx.txId,
+        }
+      );
+      return { tx, backend: res.data };
     },
     {
-      onSuccess: () => {
+      onSuccess: (data, variables) => {
+        const { id } = variables || {};
+        const backendPoll = data?.backend?.poll;
+
+        console.log("Withdraw surplus backend response:", data?.backend);
+
+        try {
+          // Update all cached admin-polls queries (all pages)
+          const queries = queryClient.getQueryCache().findAll();
+          queries.forEach((q) => {
+            const key = q.queryKey;
+            if (!key || key[0] !== "admin-polls") return;
+            queryClient.setQueryData(key, (old) => {
+              if (!old) return old;
+              const updated = { ...old };
+              updated.polls = (updated.polls || []).map((p) => {
+                if (p._id !== id) return p;
+                // Prefer backendPoll if available
+                if (backendPoll) return backendPoll;
+                return {
+                  ...p,
+                  surplusWithdrawn: true,
+                  surplusWithdrawTx: data?.tx?.txId || p.surplusWithdrawTx,
+                };
+              });
+              return updated;
+            });
+          });
+
+          // Debug: log the updated poll from cache
+          const cached = queryClient.getQueryData(["admin-polls", page]);
+          console.log("Updated admin-polls cache (page):", cached);
+        } catch (e) {
+          console.warn("Cache update failed:", e);
+        }
+
         queryClient.invalidateQueries(["admin-polls"]);
         toast.success("✅ Surplus withdrawn successfully");
       },
@@ -375,7 +413,11 @@ const Admin = () => {
                         ) : (
                           <button
                             onClick={() => withdrawSurplusMutation.mutate({ id: p._id })}
-                            className="btn-secondary btn-sm"
+                            className={`btn-secondary btn-sm ${
+                              !!p.surplusWithdrawn || withdrawSurplusMutation.isLoading
+                                ? "opacity-50 cursor-not-allowed bg-gray-400 dark:bg-gray-700"
+                                : ""
+                            }`}
                             disabled={!!p.surplusWithdrawn || withdrawSurplusMutation.isLoading}
                           >
                             {p.surplusWithdrawn ? "Surplus Withdrawn" : "Withdraw Surplus"}

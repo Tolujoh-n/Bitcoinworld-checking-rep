@@ -208,6 +208,10 @@ router.post("/polls/:id/withdraw-surplus", adminAuth, async (req, res) => {
     const poll = await Poll.findById(req.params.id);
     if (!poll) return res.status(404).json({ message: "Poll not found" });
 
+    if (poll.surplusWithdrawn) {
+      return res.status(400).json({ message: "Surplus already withdrawn" });
+    }
+
     poll.surplusWithdrawn = true;
     if (txid) poll.surplusWithdrawTx = txid;
     await poll.save();
