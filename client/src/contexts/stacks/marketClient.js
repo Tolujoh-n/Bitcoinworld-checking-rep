@@ -13,7 +13,7 @@ import { BACKEND_URL } from "../../contexts/Bakendurl";
 
 // ------------------- CONFIG -------------------
 const CONTRACT_ADDRESS = "ST1PSHE32YTEE21FGYEVTA24N681KRGSQM4VF9XZP";
-const CONTRACT_NAME = "market-factory-v2";
+const CONTRACT_NAME = "market-factory-v3";
 
 const APP_DETAILS = {
   name: "Bitcoinworld",
@@ -27,6 +27,36 @@ const _polledTxs = new Set();
 
 export function setMarketClientDebug(v = false) {
   MARKET_CLIENT_DEBUG = !!v;
+}
+
+// Helper function to test quote parsing
+export async function testQuote(marketId, amount, isYes = true) {
+  const quote = isYes ? await getQuoteYes(marketId, amount) : await getQuoteNo(marketId, amount);
+  
+  // Handle BigInt serialization for logging
+  const safeQuote = JSON.parse(JSON.stringify(quote, (key, value) =>
+    typeof value === 'bigint' ? value.toString() : value
+  ));
+  console.log("🔍 Raw quote result:", JSON.stringify(safeQuote, null, 2));
+  
+  // Parse the quote result
+  let quoteResult;
+  if (quote?.value) {
+    quoteResult = quote.value;
+  } else if (quote?.okay) {
+    quoteResult = quote.okay;
+  } else {
+    quoteResult = quote;
+  }
+  
+  // Handle BigInt serialization for logging
+  const safeQuoteResult = JSON.parse(JSON.stringify(quoteResult, (key, value) =>
+    typeof value === 'bigint' ? value.toString() : value
+  ));
+  console.log("🔍 Parsed quote result:", JSON.stringify(safeQuoteResult, null, 2));
+  console.log("🔍 Total value:", quoteResult?.total);
+  
+  return { quote, quoteResult, total: quoteResult?.total };
 }
 
 // ------------------- HELPER -------------------
@@ -52,7 +82,7 @@ async function ensureWalletAuth() {
 }
 
 // ------------------- INTERNAL HELPERS -------------------
-async function contractCall({ functionName, functionArgs = [] }) {
+async function contractCall({ functionName, functionArgs = [], postConditionMode = PostConditionMode.Allow }) {
   await ensureWalletAuth();
   // Make a human-readable dump of args for console logging
   const argsDump = (functionArgs || []).map((a) => {
@@ -75,6 +105,7 @@ async function contractCall({ functionName, functionArgs = [] }) {
   console.log("⤴️ Sending contract call to wallet:", {
     functionName,
     args: argsDump,
+    marketId: functionArgs[0]?.value, // Log the marketId for debugging
   });
 
   return new Promise((resolve, reject) => {
@@ -86,7 +117,7 @@ async function contractCall({ functionName, functionArgs = [] }) {
         functionName,
         functionArgs,
         appDetails: APP_DETAILS,
-        postConditionMode: PostConditionMode.Allow,
+        postConditionMode,
         onFinish: (data) => {
           // always log the raw response for visibility
           console.log(`⤵️ Wallet response for ${functionName}:`, data);
@@ -238,6 +269,245 @@ export async function sellNoAuto(marketId, amount, targetCap, maxCost) {
   });
 }
 
+// ------------------- SMART AUTO TRADING FUNCTIONS -------------------
+// These functions automatically get quotes and set proper maxCost
+
+// Smart buy YES with auto quote
+export async function buyYesAutoSmart(marketId, amount) {
+  // Get quote first
+  const quote = await getQuoteYes(marketId, amount);
+  
+  // Parse the quote result - it should be { cost, total, feeProtocol, feeLP, drip, brc20, team }
+  let quoteResult;
+  if (quote?.value) {
+    // If it's wrapped in a value object
+    quoteResult = quote.value;
+  } else if (quote?.okay) {
+    // If it's wrapped in an okay object
+    quoteResult = quote.okay;
+  } else {
+    // Direct result
+    quoteResult = quote;
+  }
+  
+  // Extract total from quote result - this is the exact value we need
+  const total = quoteResult?.total;
+  if (!total) {
+    // Handle BigInt serialization for error logging
+    const safeQuoteResult = JSON.parse(JSON.stringify(quoteResult, (key, value) =>
+      typeof value === 'bigint' ? value.toString() : value
+    ));
+    throw new Error(`Failed to get quote total. Quote result: ${JSON.stringify(safeQuoteResult)}`);
+  }
+  
+  const maxCost = total;
+  
+  // Calculate target cap with small buffer
+  const targetCap = total + 1;
+  
+  if (MARKET_CLIENT_DEBUG) {
+    // Handle BigInt serialization for logging
+    const safeQuoteResult = JSON.parse(JSON.stringify(quoteResult, (key, value) =>
+      typeof value === 'bigint' ? value.toString() : value
+    ));
+    console.log(`📊 buyYesAutoSmart quote:`, { 
+      marketId, 
+      amount, 
+      quoteResult: safeQuoteResult, 
+      total,
+      maxCost, 
+      targetCap 
+    });
+  }
+  
+  return contractCall({
+    functionName: "buy-yes-auto",
+    functionArgs: [
+      uintCV(marketId),
+      uintCV(amount),
+      uintCV(targetCap),
+      uintCV(maxCost),
+    ],
+  });
+}
+
+// Smart buy NO with auto quote
+export async function buyNoAutoSmart(marketId, amount) {
+  // Get quote first
+  const quote = await getQuoteNo(marketId, amount);
+  
+  // Parse the quote result - it should be { cost, total, feeProtocol, feeLP, drip, brc20, team }
+  let quoteResult;
+  if (quote?.value) {
+    // If it's wrapped in a value object
+    quoteResult = quote.value;
+  } else if (quote?.okay) {
+    // If it's wrapped in an okay object
+    quoteResult = quote.okay;
+  } else {
+    // Direct result
+    quoteResult = quote;
+  }
+  
+  // Extract total from quote result - this is the exact value we need
+  const total = quoteResult?.total;
+  if (!total) {
+    // Handle BigInt serialization for error logging
+    const safeQuoteResult = JSON.parse(JSON.stringify(quoteResult, (key, value) =>
+      typeof value === 'bigint' ? value.toString() : value
+    ));
+    throw new Error(`Failed to get quote total. Quote result: ${JSON.stringify(safeQuoteResult)}`);
+  }
+  
+  const maxCost = total;
+  
+  // Calculate target cap with small buffer
+  const targetCap = total + 1;
+  
+  if (MARKET_CLIENT_DEBUG) {
+    // Handle BigInt serialization for logging
+    const safeQuoteResult = JSON.parse(JSON.stringify(quoteResult, (key, value) =>
+      typeof value === 'bigint' ? value.toString() : value
+    ));
+    console.log(`📊 buyNoAutoSmart quote:`, { 
+      marketId, 
+      amount, 
+      quoteResult: safeQuoteResult, 
+      total,
+      maxCost, 
+      targetCap 
+    });
+  }
+  
+  return contractCall({
+    functionName: "buy-no-auto",
+    functionArgs: [
+      uintCV(marketId),
+      uintCV(amount),
+      uintCV(targetCap),
+      uintCV(maxCost),
+    ],
+  });
+}
+
+// Smart sell YES with auto quote
+export async function sellYesAutoSmart(marketId, amount) {
+  // Get quote first
+  const quote = await getQuoteYes(marketId, amount);
+  
+  // Parse the quote result - it should be { cost, total, feeProtocol, feeLP, drip, brc20, team }
+  let quoteResult;
+  if (quote?.value) {
+    // If it's wrapped in a value object
+    quoteResult = quote.value;
+  } else if (quote?.okay) {
+    // If it's wrapped in an okay object
+    quoteResult = quote.okay;
+  } else {
+    // Direct result
+    quoteResult = quote;
+  }
+  
+  // Extract total from quote result - this is the exact value we need
+  const total = quoteResult?.total;
+  if (!total) {
+    // Handle BigInt serialization for error logging
+    const safeQuoteResult = JSON.parse(JSON.stringify(quoteResult, (key, value) =>
+      typeof value === 'bigint' ? value.toString() : value
+    ));
+    throw new Error(`Failed to get quote total. Quote result: ${JSON.stringify(safeQuoteResult)}`);
+  }
+  
+  const maxCost = total;
+  
+  // Calculate target cap with small buffer
+  const targetCap = total + 1;
+  
+  if (MARKET_CLIENT_DEBUG) {
+    // Handle BigInt serialization for logging
+    const safeQuoteResult = JSON.parse(JSON.stringify(quoteResult, (key, value) =>
+      typeof value === 'bigint' ? value.toString() : value
+    ));
+    console.log(`📊 sellYesAutoSmart quote:`, { 
+      marketId, 
+      amount, 
+      quoteResult: safeQuoteResult, 
+      total,
+      maxCost, 
+      targetCap 
+    });
+  }
+  
+  return contractCall({
+    functionName: "sell-yes-auto",
+    functionArgs: [
+      uintCV(marketId),
+      uintCV(amount),
+      uintCV(targetCap),
+      uintCV(maxCost),
+    ],
+  });
+}
+
+// Smart sell NO with auto quote
+export async function sellNoAutoSmart(marketId, amount) {
+  // Get quote first
+  const quote = await getQuoteNo(marketId, amount);
+  
+  // Parse the quote result - it should be { cost, total, feeProtocol, feeLP, drip, brc20, team }
+  let quoteResult;
+  if (quote?.value) {
+    // If it's wrapped in a value object
+    quoteResult = quote.value;
+  } else if (quote?.okay) {
+    // If it's wrapped in an okay object
+    quoteResult = quote.okay;
+  } else {
+    // Direct result
+    quoteResult = quote;
+  }
+  
+  // Extract total from quote result - this is the exact value we need
+  const total = quoteResult?.total;
+  if (!total) {
+    // Handle BigInt serialization for error logging
+    const safeQuoteResult = JSON.parse(JSON.stringify(quoteResult, (key, value) =>
+      typeof value === 'bigint' ? value.toString() : value
+    ));
+    throw new Error(`Failed to get quote total. Quote result: ${JSON.stringify(safeQuoteResult)}`);
+  }
+  
+  const maxCost = total;
+  
+  // Calculate target cap with small buffer
+  const targetCap = total + 1;
+  
+  if (MARKET_CLIENT_DEBUG) {
+    // Handle BigInt serialization for logging
+    const safeQuoteResult = JSON.parse(JSON.stringify(quoteResult, (key, value) =>
+      typeof value === 'bigint' ? value.toString() : value
+    ));
+    console.log(`📊 sellNoAutoSmart quote:`, { 
+      marketId, 
+      amount, 
+      quoteResult: safeQuoteResult, 
+      total,
+      maxCost, 
+      targetCap 
+    });
+  }
+  
+  return contractCall({
+    functionName: "sell-no-auto",
+    functionArgs: [
+      uintCV(marketId),
+      uintCV(amount),
+      uintCV(targetCap),
+      uintCV(maxCost),
+    ],
+  });
+}
+
 // Resolve a market (YES / NO)
 export async function resolveMarket(marketId, result) {
   return contractCall({
@@ -266,6 +536,7 @@ export async function withdrawSurplus(marketId) {
 export async function pause() {
   return contractCall({
     functionName: "pause",
+    postConditionMode: PostConditionMode.Deny,
   });
 }
 
@@ -273,6 +544,7 @@ export async function pause() {
 export async function unpause() {
   return contractCall({
     functionName: "unpause",
+    postConditionMode: PostConditionMode.Deny,
   });
 }
 

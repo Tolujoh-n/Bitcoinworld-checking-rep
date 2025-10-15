@@ -34,6 +34,10 @@ import {
   buyNoAuto,
   sellYesAuto,
   sellNoAuto,
+  buyYesAutoSmart,
+  buyNoAutoSmart,
+  sellYesAutoSmart,
+  sellNoAutoSmart,
   redeem as redeemOnChain,
   pollTx,
 } from "../contexts/stacks/marketClient";
@@ -269,21 +273,22 @@ export default function PollDetail() {
         if (side === "buy") {
           txResult = isYes
             ? isFirst
-              ? await buyYesAuto(marketId, amt, amt * 10, Math.ceil(amt * 1.1))
+              ? await buyYesAutoSmart(marketId, amt)
               : await buyYes(marketId, amt)
             : isFirst
-            ? await buyNoAuto(marketId, amt, amt * 10, Math.ceil(amt * 1.1))
+            ? await buyNoAutoSmart(marketId, amt)
             : await buyNo(marketId, amt);
         } else {
           txResult = isYes
             ? isFirst
-              ? await sellYesAuto(marketId, amt, amt * 10, Math.ceil(amt * 1.1))
+              ? await sellYesAutoSmart(marketId, amt)
               : await sellYes(marketId, amt)
             : isFirst
-            ? await sellNoAuto(marketId, amt, amt * 10, Math.ceil(amt * 1.1))
+            ? await sellNoAutoSmart(marketId, amt)
             : await sellNo(marketId, amt);
         }
       } else {
+        // For limit orders, we still need to calculate cap and cost manually
         const cap = Math.max(amt * 10, 1);
         const cost = Math.max(Math.ceil(amt * Number(price)), 1);
         if (side === "buy") {
