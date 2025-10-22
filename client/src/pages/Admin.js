@@ -482,16 +482,32 @@ const Admin = () => {
 
   const setMaxTradeMutation = useMutation(
     async ({ marketId, limit }) => {
-      const tx = await setMaxTrade(marketId, Number(limit));
+      console.log("🔍 setMaxTradeMutation called with:", { marketId, limit, marketIdType: typeof marketId, limitType: typeof limit });
+      
+      const marketIdNum = Number(marketId);
+      const limitNum = Number(limit);
+      
+      console.log("🔍 Converted values:", { marketIdNum, limitNum });
+      
+      if (isNaN(marketIdNum) || isNaN(limitNum)) {
+        throw new Error(`Invalid marketId or limit: marketId=${marketId}, limit=${limit}`);
+      }
+      
+      const tx = await setMaxTrade(marketIdNum, limitNum);
       await pollTx(tx.txId);
-      await axios.post(`${BACKEND_URL}/api/admin/market/${marketId}/set-max-trade`, {
-        limit: Number(limit),
+      await axios.post(`${BACKEND_URL}/api/admin/market/${marketIdNum}/set-max-trade`, {
+        limit: limitNum,
         txid: tx.txId,
       });
       toast.success('✅ Max trade set');
       queryClient.invalidateQueries(["admin-polls"]);
     },
     {
+      onSuccess: () => {
+        setMaxTradeModalOpen(false);
+        setMaxTradeAmount("");
+        setSelectedMarketId(null);
+      },
       onError: (err) => toast.error(`❌ Set max trade failed: ${err?.message || err}`),
     }
   );
@@ -687,9 +703,11 @@ const Admin = () => {
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
+                                    const marketId = Number(p.marketId);
+                                    console.log("🔍 Opening Set Max Trade modal for marketId:", marketId);
                                     setMaxTradeAmount("");
                                     setMaxTradeModalOpen(true);
-                                    setSelectedMarketId(null);
+                                    setSelectedMarketId(marketId);
                                   }}
                                   className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
                                 >
@@ -1651,6 +1669,9 @@ const Admin = () => {
                 <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">
                   Set Max Trade
                 </h2>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                  Market ID: {selectedMarketId || 'Not selected'}
+                </p>
                 <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1">
                   Amount
                 </label>
@@ -1672,8 +1693,13 @@ const Admin = () => {
                   </button>
                   <button
                     className="btn-primary"
-                    onClick={() => setMaxTradeMutation.mutate({ amount: maxTradeAmount })}
-                    disabled={setMaxTradeMutation.isLoading || !maxTradeAmount}
+                    onClick={() => {
+                      if (selectedMarketId) {
+                        console.log("🔍 Calling setMaxTradeMutation with:", { marketId: selectedMarketId, limit: maxTradeAmount });
+                        setMaxTradeMutation.mutate({ marketId: selectedMarketId, limit: maxTradeAmount });
+                      }
+                    }}
+                    disabled={setMaxTradeMutation.isLoading || !maxTradeAmount || !selectedMarketId}
                   >
                     {setMaxTradeMutation.isLoading ? 'Setting...' : 'Set Max Trade'}
                   </button>

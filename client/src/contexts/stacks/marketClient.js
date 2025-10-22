@@ -615,10 +615,41 @@ export async function setFeeRecipients(drip, brc20, team, lp) {
 
 // Set max trade for a specific market
 export async function setMaxTrade(marketId, limit) {
-  return contractCall({
-    functionName: "set-max-trade",
-    functionArgs: [uintCV(marketId), uintCV(limit)],
-  });
+  console.log("🔍 setMaxTrade called with:", { marketId, limit, marketIdType: typeof marketId, limitType: typeof limit });
+  
+  // Ensure values are properly converted to numbers
+  const marketIdNum = Number(marketId);
+  const limitNum = Number(limit);
+  
+  console.log("🔍 Converted values:", { marketIdNum, limitNum });
+  
+  if (isNaN(marketIdNum) || isNaN(limitNum)) {
+    throw new Error(`Invalid marketId or limit: marketId=${marketId}, limit=${limit}`);
+  }
+  
+  if (marketIdNum <= 0 || limitNum <= 0) {
+    throw new Error(`Invalid values: marketId=${marketIdNum}, limit=${limitNum}`);
+  }
+  
+  // Ensure they are integers
+  const marketIdInt = Math.floor(marketIdNum);
+  const limitInt = Math.floor(limitNum);
+  
+  console.log("🔍 Final values for uintCV:", { marketIdInt, limitInt });
+  
+  try {
+    const marketIdCV = uintCV(marketIdInt);
+    const limitCV = uintCV(limitInt);
+    console.log("🔍 uintCV conversion successful:", { marketIdCV, limitCV });
+    
+    return contractCall({
+      functionName: "set-max-trade",
+      functionArgs: [marketIdCV, limitCV],
+    });
+  } catch (error) {
+    console.error("❌ uintCV conversion failed:", error);
+    throw new Error(`uintCV conversion failed: ${error.message}`);
+  }
 }
 
 // Pause a specific market
