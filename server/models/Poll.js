@@ -178,6 +178,39 @@ const pollSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+    // Market management fields
+    isPaused: {
+      type: Boolean,
+      default: false,
+    },
+    lastPauseTx: {
+      type: String,
+      default: null,
+    },
+    lastUnpauseTx: {
+      type: String,
+      default: null,
+    },
+    feeSettings: {
+      protocolBps: { type: Number, default: null },
+      lpBps: { type: Number, default: null },
+      lastFeeTx: { type: String, default: null },
+    },
+    feeRecipients: {
+      drip: { type: String, default: null },
+      brc20: { type: String, default: null },
+      team: { type: String, default: null },
+      lp: { type: String, default: null },
+      lastFeeRecipientTx: { type: String, default: null },
+    },
+    maxTradeLimit: {
+      type: Number,
+      default: null,
+    },
+    lastMaxTradeTx: {
+      type: String,
+      default: null,
+    },
   },
   {
     timestamps: true,

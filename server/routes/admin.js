@@ -494,4 +494,99 @@ async function markWinningTradesEligible(poll) {
   }
 }
 
+
+// @route   POST /api/admin/market/:marketId/pause
+// @desc    Pause a specific market
+// @access  Private (Admin)
+router.post("/market/:marketId/pause", adminAuth, async (req, res) => {
+  try {
+    const { marketId } = req.params;
+    const { txid } = req.body;
+    
+    // Update the poll with the transaction ID
+    const poll = await Poll.findOneAndUpdate(
+      { marketId },
+      { 
+        $set: { 
+          isPaused: true,
+          lastPauseTx: txid 
+        } 
+      },
+      { new: true }
+    );
+    
+    if (!poll) {
+      return res.status(404).json({ message: "Market not found" });
+    }
+    
+    res.json({ message: "Market paused successfully", poll });
+  } catch (error) {
+    console.error("Pause market error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// @route   POST /api/admin/market/:marketId/unpause
+// @desc    Unpause a specific market
+// @access  Private (Admin)
+router.post("/market/:marketId/unpause", adminAuth, async (req, res) => {
+  try {
+    const { marketId } = req.params;
+    const { txid } = req.body;
+    
+    // Update the poll with the transaction ID
+    const poll = await Poll.findOneAndUpdate(
+      { marketId },
+      { 
+        $set: { 
+          isPaused: false,
+          lastUnpauseTx: txid 
+        } 
+      },
+      { new: true }
+    );
+    
+    if (!poll) {
+      return res.status(404).json({ message: "Market not found" });
+    }
+    
+    res.json({ message: "Market unpaused successfully", poll });
+  } catch (error) {
+    console.error("Unpause market error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+
+// @route   POST /api/admin/market/:marketId/set-max-trade
+// @desc    Set max trade for a specific market
+// @access  Private (Admin)
+router.post("/market/:marketId/set-max-trade", adminAuth, async (req, res) => {
+  try {
+    const { marketId } = req.params;
+    const { limit, txid } = req.body;
+    
+    // Update the poll with the max trade setting
+    const poll = await Poll.findOneAndUpdate(
+      { marketId },
+      { 
+        $set: { 
+          maxTradeLimit: limit,
+          lastMaxTradeTx: txid
+        } 
+      },
+      { new: true }
+    );
+    
+    if (!poll) {
+      return res.status(404).json({ message: "Market not found" });
+    }
+    
+    res.json({ message: "Max trade set successfully", poll });
+  } catch (error) {
+    console.error("Set max trade error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
 module.exports = router;

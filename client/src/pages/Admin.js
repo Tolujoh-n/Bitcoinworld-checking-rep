@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "react-query";
 import axios from "../setupAxios";
 import { BACKEND_URL } from "../contexts/Bakendurl";
@@ -13,6 +13,11 @@ import {
   unpause,
   lockfees,
   maxtrade,
+  setFees,
+  setFeeRecipients,
+  setMaxTrade,
+  pauseMarket,
+  unpauseMarket,
 } from "../contexts/stacks/marketClient";
 import toast from "react-hot-toast";
 
@@ -112,20 +117,56 @@ const Admin = () => {
           .filter(Boolean);
       }
 
-      // step 2: call contract to create market
-      const contractAddress = process.env.REACT_APP_CONTRACT_ADDRESS;
-      const marketId = Date.now();
+      // step 2: get all polls to find the next marketId
+      let polls = [];
+      try {
+        const response = await axios.get(`${BACKEND_URL}/api/polls`);
+        console.log("🔍 API Response:", response.data);
+        
+        polls = response.data?.polls || response.data || [];
+        console.log("🔍 Fetched polls:", polls?.length || 0);
+      } catch (error) {
+        console.warn("⚠️ Failed to fetch polls, using default marketId = 1:", error.message);
+        polls = [];
+      }
+      
+      // Find the highest marketId from existing polls
+      let nextMarketId = 1;
+      if (polls && Array.isArray(polls) && polls.length > 0) {
+        const existingMarketIds = polls
+          .map(poll => poll.marketId)
+          .filter(id => id !== null && id !== undefined)
+          .map(id => Number(id))
+          .filter(id => !isNaN(id));
+        
+        console.log("🔍 Existing marketIds:", existingMarketIds);
+        
+        if (existingMarketIds.length > 0) {
+          const maxMarketId = Math.max(...existingMarketIds);
+          nextMarketId = maxMarketId + 1;
+        }
+      }
+      
+      const marketId = nextMarketId;
       const initialLiquidity = 1;
+      
+      console.log("🔍 Calculated nextMarketId:", { nextMarketId, type: typeof nextMarketId });
+      console.log("🔍 About to call createMarket with:", { marketId, initialLiquidity, marketIdType: typeof marketId });
+      
+      // Validate the marketId
+      if (isNaN(marketId) || marketId <= 0) {
+        throw new Error(`Invalid calculated marketId: ${marketId}`);
+      }
 
+      // step 3: call contract to create market
       const tx = await createMarket(marketId, initialLiquidity);
       await pollTx(tx.txId);
 
-      // step 3: push to backend (no token mint, include marketId)
+      // step 4: push to backend (no token mint, include marketId)
       return (
         await axios.post(`${BACKEND_URL}/api/polls`, {
           ...payload,
           marketId, // save this for blockchain tracking
-          contractId: `${contractAddress}.market`,
           txid: tx.txId,
         })
       ).data;
@@ -175,6 +216,32 @@ const Admin = () => {
   const [liquidityAmount, setLiquidityAmount] = useState("");
   const [maxTradeModalOpen, setMaxTradeModalOpen] = useState(false);
   const [maxTradeAmount, setMaxTradeAmount] = useState("");
+  
+  // Market management modals
+  const [setFeesModalOpen, setSetFeesModalOpen] = useState(false);
+  const [setFeeRecipientsModalOpen, setSetFeeRecipientsModalOpen] = useState(false);
+  const [selectedMarketId, setSelectedMarketId] = useState(null);
+  const [feesData, setFeesData] = useState({ protocolBps: "", lpBps: "" });
+  const [feeRecipientsData, setFeeRecipientsData] = useState({ 
+    drip: "", brc20: "", team: "", lp: "" 
+  });
+
+  // Close 3-dot menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (selectedMarketId !== null) {
+        setSelectedMarketId(null);
+      }
+    };
+
+    if (selectedMarketId !== null) {
+      document.addEventListener('click', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('click', handleClickOutside);
+    };
+  }, [selectedMarketId]);
   const updateMutation = useMutation(
     async ({ id, data }) =>
       (await axios.put(`${BACKEND_URL}/api/admin/polls/${id}`, data)).data,
@@ -293,24 +360,6 @@ const Admin = () => {
     }
   });
 
-  const setMaxTradeMutation = useMutation(async ({ amount }) => {
-    const amt = Number(amount);
-    if (!Number.isFinite(amt) || amt < 0) throw new Error('Invalid amount');
-    const tx = await maxtrade(amt);
-    await pollTx(tx.txId);
-    return tx;
-  }, {
-    onSuccess: () => {
-      setMaxTradeModalOpen(false);
-      setMaxTradeAmount('');
-      toast.success('✅ Max trade set successfully');
-      queryClient.invalidateQueries(['admin-polls']);
-    },
-    onError: (err) => {
-      toast.error(`❌ Set max trade failed: ${err?.message || err}`);
-    }
-  });
-
   const withdrawSurplusMutation = useMutation(
     async ({ id }) => {
       const poll = (polls?.polls || []).find((p) => p._id === id);
@@ -373,6 +422,77 @@ const Admin = () => {
       onError: (err) => {
         toast.error(`❌ Withdraw surplus failed: ${err?.message || err}`);
       },
+    }
+  );
+
+  // Market-specific mutations
+  const pauseMarketMutation = useMutation(
+    async ({ marketId }) => {
+      const tx = await pauseMarket(marketId);
+      await pollTx(tx.txId);
+      await axios.post(`${BACKEND_URL}/api/admin/market/${marketId}/pause`, {
+        txid: tx.txId,
+      });
+      toast.success('✅ Market paused');
+      queryClient.invalidateQueries(["admin-polls"]);
+    },
+    {
+      onError: (err) => toast.error(`❌ Pause market failed: ${err?.message || err}`),
+    }
+  );
+
+  const unpauseMarketMutation = useMutation(
+    async ({ marketId }) => {
+      const tx = await unpauseMarket(marketId);
+      await pollTx(tx.txId);
+      await axios.post(`${BACKEND_URL}/api/admin/market/${marketId}/unpause`, {
+        txid: tx.txId,
+      });
+      toast.success('✅ Market unpaused');
+      queryClient.invalidateQueries(["admin-polls"]);
+    },
+    {
+      onError: (err) => toast.error(`❌ Unpause market failed: ${err?.message || err}`),
+    }
+  );
+
+  const setFeesMutation = useMutation(
+    async ({ protocolBps, lpBps }) => {
+      const tx = await setFees(Number(protocolBps), Number(lpBps));
+      await pollTx(tx.txId);
+      toast.success('✅ Global fees set');
+      queryClient.invalidateQueries(["admin-polls"]);
+    },
+    {
+      onError: (err) => toast.error(`❌ Set fees failed: ${err?.message || err}`),
+    }
+  );
+
+  const setFeeRecipientsMutation = useMutation(
+    async ({ drip, brc20, team, lp }) => {
+      const tx = await setFeeRecipients(drip, brc20, team, lp);
+      await pollTx(tx.txId);
+      toast.success('✅ Global fee recipients set');
+      queryClient.invalidateQueries(["admin-polls"]);
+    },
+    {
+      onError: (err) => toast.error(`❌ Set fee recipients failed: ${err?.message || err}`),
+    }
+  );
+
+  const setMaxTradeMutation = useMutation(
+    async ({ marketId, limit }) => {
+      const tx = await setMaxTrade(marketId, Number(limit));
+      await pollTx(tx.txId);
+      await axios.post(`${BACKEND_URL}/api/admin/market/${marketId}/set-max-trade`, {
+        limit: Number(limit),
+        txid: tx.txId,
+      });
+      toast.success('✅ Max trade set');
+      queryClient.invalidateQueries(["admin-polls"]);
+    },
+    {
+      onError: (err) => toast.error(`❌ Set max trade failed: ${err?.message || err}`),
     }
   );
 
@@ -467,7 +587,7 @@ const Admin = () => {
                         {new Date(p.endDate).toLocaleString()}
                       </td>
                       <td className="py-2 pr-4">{p.isActive ? "Yes" : "No"}</td>
-                      <td className="py-2 pr-4 flex gap-2">
+                      <td className="py-2 pr-4 flex gap-2 items-center">
                         <button
                           onClick={() => setEditingPoll(p)}
                           className="btn-outline btn-sm"
@@ -513,6 +633,73 @@ const Admin = () => {
                           Resolve
                         </button>
 
+                        {/* 3-dot menu for market management */}
+                        <div className="relative">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedMarketId(p.marketId ? Number(p.marketId) : null);
+                            }}
+                            className="btn-outline btn-sm p-2"
+                            disabled={!p.marketId}
+                          >
+                            ⋯
+                          </button>
+                          {selectedMarketId === Number(p.marketId) && (
+                            <div className="absolute right-0 top-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg z-10 min-w-48">
+                              <div className="py-1">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (p.isPaused) {
+                                      unpauseMarketMutation.mutate({ marketId: Number(p.marketId) });
+                                    } else {
+                                      pauseMarketMutation.mutate({ marketId: Number(p.marketId) });
+                                    }
+                                    setSelectedMarketId(null);
+                                  }}
+                                  className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                                >
+                                  {p.isPaused ? "Unpause Market" : "Pause Market"}
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setFeesData({ protocolBps: "", lpBps: "" });
+                                    setSetFeesModalOpen(true);
+                                    setSelectedMarketId(null);
+                                  }}
+                                  className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                                >
+                                  Set Global Fees
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setFeeRecipientsData({ drip: "", brc20: "", team: "", lp: "" });
+                                    setSetFeeRecipientsModalOpen(true);
+                                    setSelectedMarketId(null);
+                                  }}
+                                  className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                                >
+                                  Set Global Fee Recipients
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setMaxTradeAmount("");
+                                    setMaxTradeModalOpen(true);
+                                    setSelectedMarketId(null);
+                                  }}
+                                  className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                                >
+                                  Set Max Trade
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
                         <button
                           onClick={() => deleteMutation.mutate(p._id)}
                           className="btn-danger btn-sm"
@@ -544,82 +731,32 @@ const Admin = () => {
           </div>
         </div>
 
-        {/* Admin market management buttons */}
-        <div className="mt-4 flex flex-wrap gap-2 items-center">
-          {/* Pause / Unpause single toggle */}
-          {marketStatus?.paused ? (
+        {/* Lock Fees Button - Global, One-time */}
+        <div className="mt-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-semibold text-red-800 dark:text-red-200 mb-2">
+                ⚠️ Lock Fees Configuration
+              </h3>
+              <p className="text-sm text-red-700 dark:text-red-300">
+                This action is GLOBAL and ONE-TIME ONLY. Once locked, fees cannot be changed for any market.
+                Use with extreme caution!
+              </p>
+            </div>
             <button
-              className={`btn-secondary btn-sm ${unpauseMutation.isLoading ? "opacity-50 cursor-not-allowed" : ""}`}
-              onClick={async () => {
-                try {
-                  const tx = await unpause();
-                  await pollTx(tx.txId);
-                  // update backend
-                  await axios.post(`${BACKEND_URL}/api/market/admin/pause`, {
-                    paused: false,
-                    txid: tx.txId,
-                  });
-                  toast.success('✅ Market unpaused');
-                  refetchMarketStatus();
-                } catch (err) {
-                  toast.error(`❌ Unpause failed: ${err?.message || err}`);
+              onClick={() => {
+                if (window.confirm('⚠️ WARNING: This will lock fees globally and permanently. Are you absolutely sure?')) {
+                  lockFeesMutation.mutate();
                 }
               }}
-              disabled={unpauseMutation.isLoading}
+              className={`btn-danger ${lockFeesMutation.isLoading ? "opacity-50 cursor-not-allowed" : ""}`}
+              disabled={lockFeesMutation.isLoading}
             >
-              {unpauseMutation.isLoading ? 'Unpausing...' : 'Unpause Market'}
+              {lockFeesMutation.isLoading ? 'Locking...' : '🔒 Lock Fees Globally'}
             </button>
-          ) : (
-            <button
-              className={`btn-secondary btn-sm ${pauseMutation.isLoading ? "opacity-50 cursor-not-allowed" : ""}`}
-              onClick={async () => {
-                try {
-                  const tx = await pause();
-                  await pollTx(tx.txId);
-                  // update backend
-                  await axios.post(`${BACKEND_URL}/api/market/admin/pause`, {
-                    paused: true,
-                    txid: tx.txId,
-                  });
-                  toast.success('✅ Market paused');
-                  refetchMarketStatus();
-                } catch (err) {
-                  toast.error(`❌ Pause failed: ${err?.message || err}`);
-                }
-              }}
-              disabled={pauseMutation.isLoading}
-            >
-              {pauseMutation.isLoading ? 'Pausing...' : 'Pause Market'}
-            </button>
-          )}
-
-          <button className="btn-outline btn-sm">Set Fees</button>
-
-          <button className="btn-outline btn-sm">Set Fee Recipients</button>
-
-          <button
-            className="btn-secondary btn-sm"
-            onClick={async () => {
-              try {
-                const tx = await lockfees();
-                await pollTx(tx.txId);
-                toast.success('✅ Fees locked');
-              } catch (err) {
-                toast.error(`❌ Lock fees failed: ${err?.message || err}`);
-              }
-            }}
-            disabled={lockFeesMutation.isLoading}
-          >
-            {lockFeesMutation.isLoading ? 'Locking...' : 'Lock Fees'}
-          </button>
-
-          <button
-            className="btn-secondary btn-sm"
-            onClick={() => setMaxTradeModalOpen(true)}
-          >
-            Set Max Trade
-          </button>
+          </div>
         </div>
+
 
         {/* Create modal */}
         {creating && (
@@ -1539,6 +1676,166 @@ const Admin = () => {
                     disabled={setMaxTradeMutation.isLoading || !maxTradeAmount}
                   >
                     {setMaxTradeMutation.isLoading ? 'Setting...' : 'Set Max Trade'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Set Fees modal */}
+        {setFeesModalOpen && (
+          <div className="modal-overlay" onClick={() => setSetFeesModalOpen(false)}>
+            <div
+              className="modal-content max-w-md"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="p-6">
+                <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">
+                  Set Global Fees
+                </h2>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                  This will set fees for ALL markets globally. Use with caution!
+                </p>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1">
+                      Protocol BPS
+                    </label>
+                    <input
+                      className="input w-full"
+                      value={feesData.protocolBps}
+                      onChange={(e) => setFeesData({ ...feesData, protocolBps: e.target.value })}
+                      placeholder="Enter protocol BPS (basis points)"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1">
+                      LP BPS
+                    </label>
+                    <input
+                      className="input w-full"
+                      value={feesData.lpBps}
+                      onChange={(e) => setFeesData({ ...feesData, lpBps: e.target.value })}
+                      placeholder="Enter LP BPS (basis points)"
+                    />
+                  </div>
+                </div>
+                <div className="flex justify-end gap-2 mt-6">
+                  <button
+                    className="btn-outline"
+                    onClick={() => {
+                      setSetFeesModalOpen(false);
+                      setFeesData({ protocolBps: "", lpBps: "" });
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    className="btn-primary"
+                    onClick={() => {
+                      setFeesMutation.mutate({ 
+                        protocolBps: feesData.protocolBps, 
+                        lpBps: feesData.lpBps 
+                      });
+                      setSetFeesModalOpen(false);
+                      setFeesData({ protocolBps: "", lpBps: "" });
+                    }}
+                    disabled={setFeesMutation.isLoading || !feesData.protocolBps || !feesData.lpBps}
+                  >
+                    {setFeesMutation.isLoading ? 'Setting...' : 'Set Global Fees'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Set Fee Recipients modal */}
+        {setFeeRecipientsModalOpen && (
+          <div className="modal-overlay" onClick={() => setSetFeeRecipientsModalOpen(false)}>
+            <div
+              className="modal-content max-w-md"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="p-6">
+                <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">
+                  Set Global Fee Recipients
+                </h2>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                  This will set fee recipients for ALL markets globally. Use with caution!
+                </p>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1">
+                      Drip Address
+                    </label>
+                    <input
+                      className="input w-full"
+                      value={feeRecipientsData.drip}
+                      onChange={(e) => setFeeRecipientsData({ ...feeRecipientsData, drip: e.target.value })}
+                      placeholder="Enter drip address"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1">
+                      BRC20 Address
+                    </label>
+                    <input
+                      className="input w-full"
+                      value={feeRecipientsData.brc20}
+                      onChange={(e) => setFeeRecipientsData({ ...feeRecipientsData, brc20: e.target.value })}
+                      placeholder="Enter BRC20 address"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1">
+                      Team Address
+                    </label>
+                    <input
+                      className="input w-full"
+                      value={feeRecipientsData.team}
+                      onChange={(e) => setFeeRecipientsData({ ...feeRecipientsData, team: e.target.value })}
+                      placeholder="Enter team address"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-gray-600 dark:text-gray-300 mb-1">
+                      LP Address
+                    </label>
+                    <input
+                      className="input w-full"
+                      value={feeRecipientsData.lp}
+                      onChange={(e) => setFeeRecipientsData({ ...feeRecipientsData, lp: e.target.value })}
+                      placeholder="Enter LP address"
+                    />
+                  </div>
+                </div>
+                <div className="flex justify-end gap-2 mt-6">
+                  <button
+                    className="btn-outline"
+                    onClick={() => {
+                      setSetFeeRecipientsModalOpen(false);
+                      setFeeRecipientsData({ drip: "", brc20: "", team: "", lp: "" });
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    className="btn-primary"
+                    onClick={() => {
+                      setFeeRecipientsMutation.mutate({ 
+                        drip: feeRecipientsData.drip, 
+                        brc20: feeRecipientsData.brc20, 
+                        team: feeRecipientsData.team, 
+                        lp: feeRecipientsData.lp 
+                      });
+                      setSetFeeRecipientsModalOpen(false);
+                      setFeeRecipientsData({ drip: "", brc20: "", team: "", lp: "" });
+                    }}
+                    disabled={setFeeRecipientsMutation.isLoading || !feeRecipientsData.drip || !feeRecipientsData.brc20 || !feeRecipientsData.team || !feeRecipientsData.lp}
+                  >
+                    {setFeeRecipientsMutation.isLoading ? 'Setting...' : 'Set Global Fee Recipients'}
                   </button>
                 </div>
               </div>

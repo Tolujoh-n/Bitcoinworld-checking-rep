@@ -171,10 +171,41 @@ async function contractRead({ functionName, functionArgs = [] }) {
 
 // Create a market
 export async function createMarket(marketId, initialLiquidity) {
-  return contractCall({
-    functionName: "create-market",
-    functionArgs: [uintCV(marketId), uintCV(initialLiquidity)],
-  });
+  console.log("🔍 createMarket called with:", { marketId, initialLiquidity, marketIdType: typeof marketId, initialLiquidityType: typeof initialLiquidity });
+  
+  // Ensure values are properly converted to numbers
+  const marketIdNum = Number(marketId);
+  const initialLiquidityNum = Number(initialLiquidity);
+  
+  console.log("🔍 Converted values:", { marketIdNum, initialLiquidityNum });
+  
+  if (isNaN(marketIdNum) || isNaN(initialLiquidityNum)) {
+    throw new Error(`Invalid marketId or initialLiquidity: marketId=${marketId}, initialLiquidity=${initialLiquidity}`);
+  }
+  
+  if (marketIdNum <= 0 || initialLiquidityNum <= 0) {
+    throw new Error(`Invalid values: marketId=${marketIdNum}, initialLiquidity=${initialLiquidityNum}`);
+  }
+  
+  // Ensure they are integers
+  const marketIdInt = Math.floor(marketIdNum);
+  const initialLiquidityInt = Math.floor(initialLiquidityNum);
+  
+  console.log("🔍 Final values for uintCV:", { marketIdInt, initialLiquidityInt });
+  
+  try {
+    const marketIdCV = uintCV(marketIdInt);
+    const initialLiquidityCV = uintCV(initialLiquidityInt);
+    console.log("🔍 uintCV conversion successful:", { marketIdCV, initialLiquidityCV });
+    
+    return contractCall({
+      functionName: "create-market",
+      functionArgs: [marketIdCV, initialLiquidityCV],
+    });
+  } catch (error) {
+    console.error("❌ uintCV conversion failed:", error);
+    throw new Error(`uintCV conversion failed: ${error.message}`);
+  }
 }
 
 // Add liquidity to a market
@@ -561,6 +592,50 @@ export async function maxtrade(maxtradeamount) {
   return contractCall({
     functionName: "set-max-trade",
     functionArgs: [uintCV(maxtradeamount)],
+  });
+}
+
+// ------------------- MARKET MANAGEMENT FUNCTIONS -------------------
+
+// Set fees globally (not market-specific)
+export async function setFees(protocolBps, lpBps) {
+  return contractCall({
+    functionName: "set-fees",
+    functionArgs: [uintCV(protocolBps), uintCV(lpBps)],
+  });
+}
+
+// Set fee recipients globally (not market-specific)
+export async function setFeeRecipients(drip, brc20, team, lp) {
+  return contractCall({
+    functionName: "set-fee-recipients",
+    functionArgs: [principalCV(drip), principalCV(brc20), principalCV(team), principalCV(lp)],
+  });
+}
+
+// Set max trade for a specific market
+export async function setMaxTrade(marketId, limit) {
+  return contractCall({
+    functionName: "set-max-trade",
+    functionArgs: [uintCV(marketId), uintCV(limit)],
+  });
+}
+
+// Pause a specific market
+export async function pauseMarket(marketId) {
+  return contractCall({
+    functionName: "pause",
+    functionArgs: [uintCV(marketId)],
+    postConditionMode: PostConditionMode.Deny,
+  });
+}
+
+// Unpause a specific market
+export async function unpauseMarket(marketId) {
+  return contractCall({
+    functionName: "unpause",
+    functionArgs: [uintCV(marketId)],
+    postConditionMode: PostConditionMode.Deny,
   });
 }
 // ------------------- TOKEN HELPERS -------------------
