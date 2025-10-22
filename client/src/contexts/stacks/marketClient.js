@@ -305,51 +305,50 @@ export async function sellNoAuto(marketId, amount, targetCap, maxCost) {
 
 // Smart buy YES with auto quote
 export async function buyYesAutoSmart(marketId, amount) {
-  // Get quote first
-  const quote = await getQuoteYes(marketId, amount);
+  console.log("🔍 buyYesAutoSmart called with:", { marketId, amount });
   
-  // Parse the quote result - it should be { cost, total, feeProtocol, feeLP, drip, brc20, team }
+  // Get quote first - this is the key step
+  const quote = await getQuoteYes(marketId, amount);
+  console.log("🔍 Raw quote result:", quote);
+  
+  // Parse the quote result according to developer guidelines
+  // The quote should return { cost, total, feeProtocol, feeLP, drip, brc20, team }
   let quoteResult;
   if (quote?.value) {
-    // If it's wrapped in a value object
     quoteResult = quote.value;
   } else if (quote?.okay) {
-    // If it's wrapped in an okay object
     quoteResult = quote.okay;
   } else {
-    // Direct result
     quoteResult = quote;
   }
+  
+  console.log("🔍 Parsed quote result:", quoteResult);
   
   // Extract total from quote result - this is the exact value we need
   const total = quoteResult?.total;
   if (!total) {
-    // Handle BigInt serialization for error logging
     const safeQuoteResult = JSON.parse(JSON.stringify(quoteResult, (key, value) =>
       typeof value === 'bigint' ? value.toString() : value
     ));
     throw new Error(`Failed to get quote total. Quote result: ${JSON.stringify(safeQuoteResult)}`);
   }
   
-  const maxCost = total;
+  // Convert to BigInt if it's a string
+  const totalBigInt = typeof total === 'string' ? parseInt(total, 10) : Number(total);
   
-  // Calculate target cap with small buffer
-  const targetCap = total + 1;
+  // Use the exact total from the quote as maxCost
+  const maxCost = totalBigInt;
   
-  if (MARKET_CLIENT_DEBUG) {
-    // Handle BigInt serialization for logging
-    const safeQuoteResult = JSON.parse(JSON.stringify(quoteResult, (key, value) =>
-      typeof value === 'bigint' ? value.toString() : value
-    ));
-    console.log(`📊 buyYesAutoSmart quote:`, { 
-      marketId, 
-      amount, 
-      quoteResult: safeQuoteResult, 
-      total,
-      maxCost, 
-      targetCap 
-    });
-  }
+  // Calculate targetCap as currentSpent + maxCost (or just use a reasonable cap)
+  const targetCap = maxCost + 1; // Small buffer
+  
+  console.log("🔍 Final values:", { 
+    marketId, 
+    amount, 
+    total: totalBigInt.toString(),
+    maxCost: maxCost.toString(), 
+    targetCap: targetCap.toString() 
+  });
   
   return contractCall({
     functionName: "buy-yes-auto",
@@ -364,51 +363,50 @@ export async function buyYesAutoSmart(marketId, amount) {
 
 // Smart buy NO with auto quote
 export async function buyNoAutoSmart(marketId, amount) {
-  // Get quote first
-  const quote = await getQuoteNo(marketId, amount);
+  console.log("🔍 buyNoAutoSmart called with:", { marketId, amount });
   
-  // Parse the quote result - it should be { cost, total, feeProtocol, feeLP, drip, brc20, team }
+  // Get quote first - this is the key step
+  const quote = await getQuoteNo(marketId, amount);
+  console.log("🔍 Raw quote result:", quote);
+  
+  // Parse the quote result according to developer guidelines
+  // The quote should return { cost, total, feeProtocol, feeLP, drip, brc20, team }
   let quoteResult;
   if (quote?.value) {
-    // If it's wrapped in a value object
     quoteResult = quote.value;
   } else if (quote?.okay) {
-    // If it's wrapped in an okay object
     quoteResult = quote.okay;
   } else {
-    // Direct result
     quoteResult = quote;
   }
+  
+  console.log("🔍 Parsed quote result:", quoteResult);
   
   // Extract total from quote result - this is the exact value we need
   const total = quoteResult?.total;
   if (!total) {
-    // Handle BigInt serialization for error logging
     const safeQuoteResult = JSON.parse(JSON.stringify(quoteResult, (key, value) =>
       typeof value === 'bigint' ? value.toString() : value
     ));
     throw new Error(`Failed to get quote total. Quote result: ${JSON.stringify(safeQuoteResult)}`);
   }
   
-  const maxCost = total;
+  // Convert to BigInt if it's a string
+  const totalBigInt = typeof total === 'string' ? parseInt(total, 10) : Number(total);
   
-  // Calculate target cap with small buffer
-  const targetCap = total + 1;
+  // Use the exact total from the quote as maxCost
+  const maxCost = totalBigInt;
   
-  if (MARKET_CLIENT_DEBUG) {
-    // Handle BigInt serialization for logging
-    const safeQuoteResult = JSON.parse(JSON.stringify(quoteResult, (key, value) =>
-      typeof value === 'bigint' ? value.toString() : value
-    ));
-    console.log(`📊 buyNoAutoSmart quote:`, { 
-      marketId, 
-      amount, 
-      quoteResult: safeQuoteResult, 
-      total,
-      maxCost, 
-      targetCap 
-    });
-  }
+  // Calculate targetCap as currentSpent + maxCost (or just use a reasonable cap)
+  const targetCap = maxCost + 1; // Small buffer
+  
+  console.log("🔍 Final values:", { 
+    marketId, 
+    amount, 
+    total: totalBigInt.toString(),
+    maxCost: maxCost.toString(), 
+    targetCap: targetCap.toString() 
+  });
   
   return contractCall({
     functionName: "buy-no-auto",
@@ -423,51 +421,50 @@ export async function buyNoAutoSmart(marketId, amount) {
 
 // Smart sell YES with auto quote
 export async function sellYesAutoSmart(marketId, amount) {
-  // Get quote first
-  const quote = await getQuoteYes(marketId, amount);
+  console.log("🔍 sellYesAutoSmart called with:", { marketId, amount });
   
-  // Parse the quote result - it should be { cost, total, feeProtocol, feeLP, drip, brc20, team }
+  // Get quote first - this is the key step
+  const quote = await getQuoteYes(marketId, amount);
+  console.log("🔍 Raw quote result:", quote);
+  
+  // Parse the quote result according to developer guidelines
+  // The quote should return { cost, total, feeProtocol, feeLP, drip, brc20, team }
   let quoteResult;
   if (quote?.value) {
-    // If it's wrapped in a value object
     quoteResult = quote.value;
   } else if (quote?.okay) {
-    // If it's wrapped in an okay object
     quoteResult = quote.okay;
   } else {
-    // Direct result
     quoteResult = quote;
   }
+  
+  console.log("🔍 Parsed quote result:", quoteResult);
   
   // Extract total from quote result - this is the exact value we need
   const total = quoteResult?.total;
   if (!total) {
-    // Handle BigInt serialization for error logging
     const safeQuoteResult = JSON.parse(JSON.stringify(quoteResult, (key, value) =>
       typeof value === 'bigint' ? value.toString() : value
     ));
     throw new Error(`Failed to get quote total. Quote result: ${JSON.stringify(safeQuoteResult)}`);
   }
   
-  const maxCost = total;
+  // Convert to BigInt if it's a string
+  const totalBigInt = typeof total === 'string' ? parseInt(total, 10) : Number(total);
   
-  // Calculate target cap with small buffer
-  const targetCap = total + 1;
+  // Use the exact total from the quote as maxCost
+  const maxCost = totalBigInt;
   
-  if (MARKET_CLIENT_DEBUG) {
-    // Handle BigInt serialization for logging
-    const safeQuoteResult = JSON.parse(JSON.stringify(quoteResult, (key, value) =>
-      typeof value === 'bigint' ? value.toString() : value
-    ));
-    console.log(`📊 sellYesAutoSmart quote:`, { 
-      marketId, 
-      amount, 
-      quoteResult: safeQuoteResult, 
-      total,
-      maxCost, 
-      targetCap 
-    });
-  }
+  // Calculate targetCap as currentSpent + maxCost (or just use a reasonable cap)
+  const targetCap = maxCost + 1; // Small buffer
+  
+  console.log("🔍 Final values:", { 
+    marketId, 
+    amount, 
+    total: totalBigInt.toString(),
+    maxCost: maxCost.toString(), 
+    targetCap: targetCap.toString() 
+  });
   
   return contractCall({
     functionName: "sell-yes-auto",
@@ -482,51 +479,50 @@ export async function sellYesAutoSmart(marketId, amount) {
 
 // Smart sell NO with auto quote
 export async function sellNoAutoSmart(marketId, amount) {
-  // Get quote first
-  const quote = await getQuoteNo(marketId, amount);
+  console.log("🔍 sellNoAutoSmart called with:", { marketId, amount });
   
-  // Parse the quote result - it should be { cost, total, feeProtocol, feeLP, drip, brc20, team }
+  // Get quote first - this is the key step
+  const quote = await getQuoteNo(marketId, amount);
+  console.log("🔍 Raw quote result:", quote);
+  
+  // Parse the quote result according to developer guidelines
+  // The quote should return { cost, total, feeProtocol, feeLP, drip, brc20, team }
   let quoteResult;
   if (quote?.value) {
-    // If it's wrapped in a value object
     quoteResult = quote.value;
   } else if (quote?.okay) {
-    // If it's wrapped in an okay object
     quoteResult = quote.okay;
   } else {
-    // Direct result
     quoteResult = quote;
   }
+  
+  console.log("🔍 Parsed quote result:", quoteResult);
   
   // Extract total from quote result - this is the exact value we need
   const total = quoteResult?.total;
   if (!total) {
-    // Handle BigInt serialization for error logging
     const safeQuoteResult = JSON.parse(JSON.stringify(quoteResult, (key, value) =>
       typeof value === 'bigint' ? value.toString() : value
     ));
     throw new Error(`Failed to get quote total. Quote result: ${JSON.stringify(safeQuoteResult)}`);
   }
   
-  const maxCost = total;
+  // Convert to BigInt if it's a string
+  const totalBigInt = typeof total === 'string' ? parseInt(total, 10) : Number(total);
   
-  // Calculate target cap with small buffer
-  const targetCap = total + 1;
+  // Use the exact total from the quote as maxCost
+  const maxCost = totalBigInt;
   
-  if (MARKET_CLIENT_DEBUG) {
-    // Handle BigInt serialization for logging
-    const safeQuoteResult = JSON.parse(JSON.stringify(quoteResult, (key, value) =>
-      typeof value === 'bigint' ? value.toString() : value
-    ));
-    console.log(`📊 sellNoAutoSmart quote:`, { 
-      marketId, 
-      amount, 
-      quoteResult: safeQuoteResult, 
-      total,
-      maxCost, 
-      targetCap 
-    });
-  }
+  // Calculate targetCap as currentSpent + maxCost (or just use a reasonable cap)
+  const targetCap = maxCost + 1; // Small buffer
+  
+  console.log("🔍 Final values:", { 
+    marketId, 
+    amount, 
+    total: totalBigInt.toString(),
+    maxCost: maxCost.toString(), 
+    targetCap: targetCap.toString() 
+  });
   
   return contractCall({
     functionName: "sell-no-auto",
