@@ -6,7 +6,11 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
-    "populate": "node scripts/populateData.js"
+    "populate": "node scripts/populateData.js",
+    "db:clear": "node scripts/clearDatabase.js --all",
+    "db:clear:keep-admin": "node scripts/clearDatabase.js --keep-admin",
+    "db:clear:trades": "node scripts/clearDatabase.js --collections=trades",
+    "db:clear:comments": "node scripts/clearDatabase.js --collections=comments"
   },
   "dependencies": {
     "axios": "^1.11.0",
