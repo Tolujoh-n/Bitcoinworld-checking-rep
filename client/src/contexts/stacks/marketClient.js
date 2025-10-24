@@ -82,7 +82,7 @@ async function ensureWalletAuth() {
 }
 
 // ------------------- INTERNAL HELPERS -------------------
-async function contractCall({ functionName, functionArgs = [], postConditionMode = PostConditionMode.Allow }) {
+async function contractCall({ functionName, functionArgs = [], postConditionMode = PostConditionMode.Allow, quoteData = null }) {
   await ensureWalletAuth();
   // Make a human-readable dump of args for console logging
   const argsDump = (functionArgs || []).map((a) => {
@@ -107,6 +107,23 @@ async function contractCall({ functionName, functionArgs = [], postConditionMode
     args: argsDump,
     marketId: functionArgs[0]?.value, // Log the marketId for debugging
   });
+
+  // Log quote data if provided
+  if (quoteData) {
+    console.log("📊 Quote Data for Contract Call:", {
+      functionName,
+      marketId: functionArgs[0]?.value,
+      quoteDetails: {
+        cost: quoteData?.cost?.value || quoteData?.cost,
+        total: quoteData?.total?.value || quoteData?.total,
+        feeProtocol: quoteData?.feeProtocol?.value || quoteData?.feeProtocol,
+        feeLP: quoteData?.feeLP?.value || quoteData?.feeLP,
+        drip: quoteData?.drip?.value || quoteData?.drip,
+        brc20: quoteData?.brc20?.value || quoteData?.brc20,
+        team: quoteData?.team?.value || quoteData?.team
+      }
+    });
+  }
 
   return new Promise((resolve, reject) => {
     try {
@@ -250,6 +267,43 @@ export async function sellNo(marketId, amount) {
 
 // Buy YES tokens with auto-cap
 export async function buyYesAuto(marketId, amount, targetCap, maxCost) {
+  console.log("🔍 buyYesAuto called with:", { marketId, amount, targetCap, maxCost });
+  
+  // Fetch quote for logging purposes
+  try {
+    const quote = await getQuoteYes(marketId, amount);
+    console.log("🔍 Raw quote result (buyYesAuto):", quote);
+    
+    // Parse the quote result
+    let quoteResult;
+    if (quote?.value) {
+      quoteResult = quote.value;
+    } else if (quote?.okay) {
+      quoteResult = quote.okay;
+    } else {
+      quoteResult = quote;
+    }
+    
+    console.log("🔍 Parsed quote result (buyYesAuto):", quoteResult);
+    
+    // Log quote breakdown
+    console.log("📊 Quote Breakdown (buyYesAuto):", {
+      marketId,
+      amount,
+      quoteDetails: {
+        cost: quoteResult?.cost?.value || quoteResult?.cost,
+        total: quoteResult?.total?.value || quoteResult?.total,
+        feeProtocol: quoteResult?.feeProtocol?.value || quoteResult?.feeProtocol,
+        feeLP: quoteResult?.feeLP?.value || quoteResult?.feeLP,
+        drip: quoteResult?.drip?.value || quoteResult?.drip,
+        brc20: quoteResult?.brc20?.value || quoteResult?.brc20,
+        team: quoteResult?.team?.value || quoteResult?.team
+      }
+    });
+  } catch (error) {
+    console.warn("⚠️ Failed to fetch quote for buyYesAuto:", error.message);
+  }
+  
   return contractCall({
     functionName: "buy-yes-auto",
     functionArgs: [
@@ -263,6 +317,43 @@ export async function buyYesAuto(marketId, amount, targetCap, maxCost) {
 
 // Buy NO tokens with auto-cap
 export async function buyNoAuto(marketId, amount, targetCap, maxCost) {
+  console.log("🔍 buyNoAuto called with:", { marketId, amount, targetCap, maxCost });
+  
+  // Fetch quote for logging purposes
+  try {
+    const quote = await getQuoteNo(marketId, amount);
+    console.log("🔍 Raw quote result (buyNoAuto):", quote);
+    
+    // Parse the quote result
+    let quoteResult;
+    if (quote?.value) {
+      quoteResult = quote.value;
+    } else if (quote?.okay) {
+      quoteResult = quote.okay;
+    } else {
+      quoteResult = quote;
+    }
+    
+    console.log("🔍 Parsed quote result (buyNoAuto):", quoteResult);
+    
+    // Log quote breakdown
+    console.log("📊 Quote Breakdown (buyNoAuto):", {
+      marketId,
+      amount,
+      quoteDetails: {
+        cost: quoteResult?.cost?.value || quoteResult?.cost,
+        total: quoteResult?.total?.value || quoteResult?.total,
+        feeProtocol: quoteResult?.feeProtocol?.value || quoteResult?.feeProtocol,
+        feeLP: quoteResult?.feeLP?.value || quoteResult?.feeLP,
+        drip: quoteResult?.drip?.value || quoteResult?.drip,
+        brc20: quoteResult?.brc20?.value || quoteResult?.brc20,
+        team: quoteResult?.team?.value || quoteResult?.team
+      }
+    });
+  } catch (error) {
+    console.warn("⚠️ Failed to fetch quote for buyNoAuto:", error.message);
+  }
+  
   return contractCall({
     functionName: "buy-no-auto",
     functionArgs: [
@@ -276,6 +367,43 @@ export async function buyNoAuto(marketId, amount, targetCap, maxCost) {
 
 // Sell YES tokens with auto-cap
 export async function sellYesAuto(marketId, amount, targetCap, maxCost) {
+  console.log("🔍 sellYesAuto called with:", { marketId, amount, targetCap, maxCost });
+  
+  // Fetch quote for logging purposes
+  try {
+    const quote = await getQuoteYes(marketId, amount);
+    console.log("🔍 Raw quote result (sellYesAuto):", quote);
+    
+    // Parse the quote result
+    let quoteResult;
+    if (quote?.value) {
+      quoteResult = quote.value;
+    } else if (quote?.okay) {
+      quoteResult = quote.okay;
+    } else {
+      quoteResult = quote;
+    }
+    
+    console.log("🔍 Parsed quote result (sellYesAuto):", quoteResult);
+    
+    // Log quote breakdown
+    console.log("📊 Quote Breakdown (sellYesAuto):", {
+      marketId,
+      amount,
+      quoteDetails: {
+        cost: quoteResult?.cost?.value || quoteResult?.cost,
+        total: quoteResult?.total?.value || quoteResult?.total,
+        feeProtocol: quoteResult?.feeProtocol?.value || quoteResult?.feeProtocol,
+        feeLP: quoteResult?.feeLP?.value || quoteResult?.feeLP,
+        drip: quoteResult?.drip?.value || quoteResult?.drip,
+        brc20: quoteResult?.brc20?.value || quoteResult?.brc20,
+        team: quoteResult?.team?.value || quoteResult?.team
+      }
+    });
+  } catch (error) {
+    console.warn("⚠️ Failed to fetch quote for sellYesAuto:", error.message);
+  }
+  
   return contractCall({
     functionName: "sell-yes-auto",
     functionArgs: [
@@ -289,6 +417,43 @@ export async function sellYesAuto(marketId, amount, targetCap, maxCost) {
 
 // Sell NO tokens with auto-cap
 export async function sellNoAuto(marketId, amount, targetCap, maxCost) {
+  console.log("🔍 sellNoAuto called with:", { marketId, amount, targetCap, maxCost });
+  
+  // Fetch quote for logging purposes
+  try {
+    const quote = await getQuoteNo(marketId, amount);
+    console.log("🔍 Raw quote result (sellNoAuto):", quote);
+    
+    // Parse the quote result
+    let quoteResult;
+    if (quote?.value) {
+      quoteResult = quote.value;
+    } else if (quote?.okay) {
+      quoteResult = quote.okay;
+    } else {
+      quoteResult = quote;
+    }
+    
+    console.log("🔍 Parsed quote result (sellNoAuto):", quoteResult);
+    
+    // Log quote breakdown
+    console.log("📊 Quote Breakdown (sellNoAuto):", {
+      marketId,
+      amount,
+      quoteDetails: {
+        cost: quoteResult?.cost?.value || quoteResult?.cost,
+        total: quoteResult?.total?.value || quoteResult?.total,
+        feeProtocol: quoteResult?.feeProtocol?.value || quoteResult?.feeProtocol,
+        feeLP: quoteResult?.feeLP?.value || quoteResult?.feeLP,
+        drip: quoteResult?.drip?.value || quoteResult?.drip,
+        brc20: quoteResult?.brc20?.value || quoteResult?.brc20,
+        team: quoteResult?.team?.value || quoteResult?.team
+      }
+    });
+  } catch (error) {
+    console.warn("⚠️ Failed to fetch quote for sellNoAuto:", error.message);
+  }
+  
   return contractCall({
     functionName: "sell-no-auto",
     functionArgs: [
@@ -350,6 +515,21 @@ export async function buyYesAutoSmart(marketId, amount) {
     targetCap: targetCap.toString() 
   });
   
+  // Log detailed quote breakdown for successful quotes
+  console.log("📊 Quote Breakdown (buy-yes-auto):", {
+    marketId,
+    amount,
+    quoteDetails: {
+      cost: quoteResult?.cost?.value || quoteResult?.cost,
+      total: quoteResult?.total?.value || quoteResult?.total,
+      feeProtocol: quoteResult?.feeProtocol?.value || quoteResult?.feeProtocol,
+      feeLP: quoteResult?.feeLP?.value || quoteResult?.feeLP,
+      drip: quoteResult?.drip?.value || quoteResult?.drip,
+      brc20: quoteResult?.brc20?.value || quoteResult?.brc20,
+      team: quoteResult?.team?.value || quoteResult?.team
+    }
+  });
+  
   return contractCall({
     functionName: "buy-yes-auto",
     functionArgs: [
@@ -358,6 +538,7 @@ export async function buyYesAutoSmart(marketId, amount) {
       uintCV(targetCap),
       uintCV(maxCost),
     ],
+    quoteData: quoteResult,
   });
 }
 
@@ -408,6 +589,21 @@ export async function buyNoAutoSmart(marketId, amount) {
     targetCap: targetCap.toString() 
   });
   
+  // Log detailed quote breakdown for successful quotes
+  console.log("📊 Quote Breakdown (buy-no-auto):", {
+    marketId,
+    amount,
+    quoteDetails: {
+      cost: quoteResult?.cost?.value || quoteResult?.cost,
+      total: quoteResult?.total?.value || quoteResult?.total,
+      feeProtocol: quoteResult?.feeProtocol?.value || quoteResult?.feeProtocol,
+      feeLP: quoteResult?.feeLP?.value || quoteResult?.feeLP,
+      drip: quoteResult?.drip?.value || quoteResult?.drip,
+      brc20: quoteResult?.brc20?.value || quoteResult?.brc20,
+      team: quoteResult?.team?.value || quoteResult?.team
+    }
+  });
+  
   return contractCall({
     functionName: "buy-no-auto",
     functionArgs: [
@@ -416,6 +612,7 @@ export async function buyNoAutoSmart(marketId, amount) {
       uintCV(targetCap),
       uintCV(maxCost),
     ],
+    quoteData: quoteResult,
   });
 }
 
@@ -466,6 +663,21 @@ export async function sellYesAutoSmart(marketId, amount) {
     targetCap: targetCap.toString() 
   });
   
+  // Log detailed quote breakdown for successful quotes
+  console.log("📊 Quote Breakdown (sell-yes-auto):", {
+    marketId,
+    amount,
+    quoteDetails: {
+      cost: quoteResult?.cost?.value || quoteResult?.cost,
+      total: quoteResult?.total?.value || quoteResult?.total,
+      feeProtocol: quoteResult?.feeProtocol?.value || quoteResult?.feeProtocol,
+      feeLP: quoteResult?.feeLP?.value || quoteResult?.feeLP,
+      drip: quoteResult?.drip?.value || quoteResult?.drip,
+      brc20: quoteResult?.brc20?.value || quoteResult?.brc20,
+      team: quoteResult?.team?.value || quoteResult?.team
+    }
+  });
+  
   return contractCall({
     functionName: "sell-yes-auto",
     functionArgs: [
@@ -474,6 +686,7 @@ export async function sellYesAutoSmart(marketId, amount) {
       uintCV(targetCap),
       uintCV(maxCost),
     ],
+    quoteData: quoteResult,
   });
 }
 
@@ -524,6 +737,21 @@ export async function sellNoAutoSmart(marketId, amount) {
     targetCap: targetCap.toString() 
   });
   
+  // Log detailed quote breakdown for successful quotes
+  console.log("📊 Quote Breakdown (sell-no-auto):", {
+    marketId,
+    amount,
+    quoteDetails: {
+      cost: quoteResult?.cost?.value || quoteResult?.cost,
+      total: quoteResult?.total?.value || quoteResult?.total,
+      feeProtocol: quoteResult?.feeProtocol?.value || quoteResult?.feeProtocol,
+      feeLP: quoteResult?.feeLP?.value || quoteResult?.feeLP,
+      drip: quoteResult?.drip?.value || quoteResult?.drip,
+      brc20: quoteResult?.brc20?.value || quoteResult?.brc20,
+      team: quoteResult?.team?.value || quoteResult?.team
+    }
+  });
+  
   return contractCall({
     functionName: "sell-no-auto",
     functionArgs: [
@@ -532,6 +760,7 @@ export async function sellNoAutoSmart(marketId, amount) {
       uintCV(targetCap),
       uintCV(maxCost),
     ],
+    quoteData: quoteResult,
   });
 }
 
