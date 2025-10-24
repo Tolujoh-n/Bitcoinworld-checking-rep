@@ -117,56 +117,28 @@ const Admin = () => {
           .filter(Boolean);
       }
 
-      // step 2: get all polls to find the next marketId
-      let polls = [];
-      try {
-        const response = await axios.get(`${BACKEND_URL}/api/polls`);
-        console.log("🔍 API Response:", response.data);
-        
-        polls = response.data?.polls || response.data || [];
-        console.log("🔍 Fetched polls:", polls?.length || 0);
-      } catch (error) {
-        console.warn("⚠️ Failed to fetch polls, using default marketId = 1:", error.message);
-        polls = [];
-      }
-      
-      // Find the highest marketId from existing polls
-      let nextMarketId = 1;
-      if (polls && Array.isArray(polls) && polls.length > 0) {
-        const existingMarketIds = polls
-          .map(poll => poll.marketId)
-          .filter(id => id !== null && id !== undefined)
-          .map(id => Number(id))
-          .filter(id => !isNaN(id));
-        
-        console.log("🔍 Existing marketIds:", existingMarketIds);
-        
-        if (existingMarketIds.length > 0) {
-          const maxMarketId = Math.max(...existingMarketIds);
-          nextMarketId = maxMarketId + 1;
-        }
-      }
-      
-      const marketId = nextMarketId;
+      // step 2: generate unique marketId using timestamp
+      const marketId = Date.now().toString();
       const initialLiquidity = 1;
       
-      console.log("🔍 Calculated nextMarketId:", { nextMarketId, type: typeof nextMarketId });
+      console.log("🔍 Generated timestamp-based marketId:", { marketId, type: typeof marketId });
       console.log("🔍 About to call createMarket with:", { marketId, initialLiquidity, marketIdType: typeof marketId });
       
-      // Validate the marketId
-      if (isNaN(marketId) || marketId <= 0) {
-        throw new Error(`Invalid calculated marketId: ${marketId}`);
+      // Validate the marketId (timestamp should be a valid number when parsed)
+      const timestampValue = parseInt(marketId);
+      if (isNaN(timestampValue) || timestampValue <= 0) {
+        throw new Error(`Invalid timestamp-based marketId: ${marketId}`);
       }
 
-      // step 3: call contract to create market
-      const tx = await createMarket(marketId, initialLiquidity);
+      // step 3: call contract to create market (pass as number for contract)
+      const tx = await createMarket(timestampValue, initialLiquidity);
       await pollTx(tx.txId);
 
-      // step 4: push to backend (no token mint, include marketId)
+      // step 4: push to backend (no token mint, include marketId as string)
       return (
         await axios.post(`${BACKEND_URL}/api/polls`, {
           ...payload,
-          marketId, // save this for blockchain tracking
+          marketId, // save this as string for blockchain tracking
           txid: tx.txId,
         })
       ).data;
