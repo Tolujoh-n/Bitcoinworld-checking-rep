@@ -114,13 +114,13 @@ async function contractCall({ functionName, functionArgs = [], postConditionMode
       functionName,
       marketId: functionArgs[0]?.value,
       quoteDetails: {
-        cost: quoteData?.cost?.value || quoteData?.cost,
-        total: quoteData?.total?.value || quoteData?.total,
-        feeProtocol: quoteData?.feeProtocol?.value || quoteData?.feeProtocol,
-        feeLP: quoteData?.feeLP?.value || quoteData?.feeLP,
-        drip: quoteData?.drip?.value || quoteData?.drip,
-        brc20: quoteData?.brc20?.value || quoteData?.brc20,
-        team: quoteData?.team?.value || quoteData?.team
+        cost: quoteData?.cost?.value?.toString() || quoteData?.cost,
+        total: quoteData?.total?.value?.toString() || quoteData?.total,
+        feeProtocol: quoteData?.feeProtocol?.value?.toString() || quoteData?.feeProtocol,
+        feeLP: quoteData?.feeLP?.value?.toString() || quoteData?.feeLP,
+        drip: quoteData?.drip?.value?.toString() || quoteData?.drip,
+        brc20: quoteData?.brc20?.value?.toString() || quoteData?.brc20,
+        team: quoteData?.team?.value?.toString() || quoteData?.team
       }
     });
   }
@@ -291,13 +291,13 @@ export async function buyYesAuto(marketId, amount, targetCap, maxCost) {
       marketId,
       amount,
       quoteDetails: {
-        cost: quoteResult?.cost?.value || quoteResult?.cost,
-        total: quoteResult?.total?.value || quoteResult?.total,
-        feeProtocol: quoteResult?.feeProtocol?.value || quoteResult?.feeProtocol,
-        feeLP: quoteResult?.feeLP?.value || quoteResult?.feeLP,
-        drip: quoteResult?.drip?.value || quoteResult?.drip,
-        brc20: quoteResult?.brc20?.value || quoteResult?.brc20,
-        team: quoteResult?.team?.value || quoteResult?.team
+        cost: quoteResult?.cost?.value?.toString() || quoteResult?.cost,
+        total: quoteResult?.total?.value?.toString() || quoteResult?.total,
+        feeProtocol: quoteResult?.feeProtocol?.value?.toString() || quoteResult?.feeProtocol,
+        feeLP: quoteResult?.feeLP?.value?.toString() || quoteResult?.feeLP,
+        drip: quoteResult?.drip?.value?.toString() || quoteResult?.drip,
+        brc20: quoteResult?.brc20?.value?.toString() || quoteResult?.brc20,
+        team: quoteResult?.team?.value?.toString() || quoteResult?.team
       }
     });
   } catch (error) {
@@ -341,13 +341,13 @@ export async function buyNoAuto(marketId, amount, targetCap, maxCost) {
       marketId,
       amount,
       quoteDetails: {
-        cost: quoteResult?.cost?.value || quoteResult?.cost,
-        total: quoteResult?.total?.value || quoteResult?.total,
-        feeProtocol: quoteResult?.feeProtocol?.value || quoteResult?.feeProtocol,
-        feeLP: quoteResult?.feeLP?.value || quoteResult?.feeLP,
-        drip: quoteResult?.drip?.value || quoteResult?.drip,
-        brc20: quoteResult?.brc20?.value || quoteResult?.brc20,
-        team: quoteResult?.team?.value || quoteResult?.team
+        cost: quoteResult?.cost?.value?.toString() || quoteResult?.cost,
+        total: quoteResult?.total?.value?.toString() || quoteResult?.total,
+        feeProtocol: quoteResult?.feeProtocol?.value?.toString() || quoteResult?.feeProtocol,
+        feeLP: quoteResult?.feeLP?.value?.toString() || quoteResult?.feeLP,
+        drip: quoteResult?.drip?.value?.toString() || quoteResult?.drip,
+        brc20: quoteResult?.brc20?.value?.toString() || quoteResult?.brc20,
+        team: quoteResult?.team?.value?.toString() || quoteResult?.team
       }
     });
   } catch (error) {
@@ -391,13 +391,13 @@ export async function sellYesAuto(marketId, amount, targetCap, maxCost) {
       marketId,
       amount,
       quoteDetails: {
-        cost: quoteResult?.cost?.value || quoteResult?.cost,
-        total: quoteResult?.total?.value || quoteResult?.total,
-        feeProtocol: quoteResult?.feeProtocol?.value || quoteResult?.feeProtocol,
-        feeLP: quoteResult?.feeLP?.value || quoteResult?.feeLP,
-        drip: quoteResult?.drip?.value || quoteResult?.drip,
-        brc20: quoteResult?.brc20?.value || quoteResult?.brc20,
-        team: quoteResult?.team?.value || quoteResult?.team
+        cost: quoteResult?.cost?.value?.toString() || quoteResult?.cost,
+        total: quoteResult?.total?.value?.toString() || quoteResult?.total,
+        feeProtocol: quoteResult?.feeProtocol?.value?.toString() || quoteResult?.feeProtocol,
+        feeLP: quoteResult?.feeLP?.value?.toString() || quoteResult?.feeLP,
+        drip: quoteResult?.drip?.value?.toString() || quoteResult?.drip,
+        brc20: quoteResult?.brc20?.value?.toString() || quoteResult?.brc20,
+        team: quoteResult?.team?.value?.toString() || quoteResult?.team
       }
     });
   } catch (error) {
@@ -441,13 +441,13 @@ export async function sellNoAuto(marketId, amount, targetCap, maxCost) {
       marketId,
       amount,
       quoteDetails: {
-        cost: quoteResult?.cost?.value || quoteResult?.cost,
-        total: quoteResult?.total?.value || quoteResult?.total,
-        feeProtocol: quoteResult?.feeProtocol?.value || quoteResult?.feeProtocol,
-        feeLP: quoteResult?.feeLP?.value || quoteResult?.feeLP,
-        drip: quoteResult?.drip?.value || quoteResult?.drip,
-        brc20: quoteResult?.brc20?.value || quoteResult?.brc20,
-        team: quoteResult?.team?.value || quoteResult?.team
+        cost: quoteResult?.cost?.value?.toString() || quoteResult?.cost,
+        total: quoteResult?.total?.value?.toString() || quoteResult?.total,
+        feeProtocol: quoteResult?.feeProtocol?.value?.toString() || quoteResult?.feeProtocol,
+        feeLP: quoteResult?.feeLP?.value?.toString() || quoteResult?.feeLP,
+        drip: quoteResult?.drip?.value?.toString() || quoteResult?.drip,
+        brc20: quoteResult?.brc20?.value?.toString() || quoteResult?.brc20,
+        team: quoteResult?.team?.value?.toString() || quoteResult?.team
       }
     });
   } catch (error) {
@@ -520,13 +520,13 @@ export async function buyYesAutoSmart(marketId, amount) {
     marketId,
     amount,
     quoteDetails: {
-      cost: quoteResult?.cost?.value || quoteResult?.cost,
-      total: quoteResult?.total?.value || quoteResult?.total,
-      feeProtocol: quoteResult?.feeProtocol?.value || quoteResult?.feeProtocol,
-      feeLP: quoteResult?.feeLP?.value || quoteResult?.feeLP,
-      drip: quoteResult?.drip?.value || quoteResult?.drip,
-      brc20: quoteResult?.brc20?.value || quoteResult?.brc20,
-      team: quoteResult?.team?.value || quoteResult?.team
+      cost: quoteResult?.cost?.value?.toString() || quoteResult?.cost,
+      total: quoteResult?.total?.value?.toString() || quoteResult?.total,
+      feeProtocol: quoteResult?.feeProtocol?.value?.toString() || quoteResult?.feeProtocol,
+      feeLP: quoteResult?.feeLP?.value?.toString() || quoteResult?.feeLP,
+      drip: quoteResult?.drip?.value?.toString() || quoteResult?.drip,
+      brc20: quoteResult?.brc20?.value?.toString() || quoteResult?.brc20,
+      team: quoteResult?.team?.value?.toString() || quoteResult?.team
     }
   });
   
@@ -594,13 +594,13 @@ export async function buyNoAutoSmart(marketId, amount) {
     marketId,
     amount,
     quoteDetails: {
-      cost: quoteResult?.cost?.value || quoteResult?.cost,
-      total: quoteResult?.total?.value || quoteResult?.total,
-      feeProtocol: quoteResult?.feeProtocol?.value || quoteResult?.feeProtocol,
-      feeLP: quoteResult?.feeLP?.value || quoteResult?.feeLP,
-      drip: quoteResult?.drip?.value || quoteResult?.drip,
-      brc20: quoteResult?.brc20?.value || quoteResult?.brc20,
-      team: quoteResult?.team?.value || quoteResult?.team
+      cost: quoteResult?.cost?.value?.toString() || quoteResult?.cost,
+      total: quoteResult?.total?.value?.toString() || quoteResult?.total,
+      feeProtocol: quoteResult?.feeProtocol?.value?.toString() || quoteResult?.feeProtocol,
+      feeLP: quoteResult?.feeLP?.value?.toString() || quoteResult?.feeLP,
+      drip: quoteResult?.drip?.value?.toString() || quoteResult?.drip,
+      brc20: quoteResult?.brc20?.value?.toString() || quoteResult?.brc20,
+      team: quoteResult?.team?.value?.toString() || quoteResult?.team
     }
   });
   
@@ -668,13 +668,13 @@ export async function sellYesAutoSmart(marketId, amount) {
     marketId,
     amount,
     quoteDetails: {
-      cost: quoteResult?.cost?.value || quoteResult?.cost,
-      total: quoteResult?.total?.value || quoteResult?.total,
-      feeProtocol: quoteResult?.feeProtocol?.value || quoteResult?.feeProtocol,
-      feeLP: quoteResult?.feeLP?.value || quoteResult?.feeLP,
-      drip: quoteResult?.drip?.value || quoteResult?.drip,
-      brc20: quoteResult?.brc20?.value || quoteResult?.brc20,
-      team: quoteResult?.team?.value || quoteResult?.team
+      cost: quoteResult?.cost?.value?.toString() || quoteResult?.cost,
+      total: quoteResult?.total?.value?.toString() || quoteResult?.total,
+      feeProtocol: quoteResult?.feeProtocol?.value?.toString() || quoteResult?.feeProtocol,
+      feeLP: quoteResult?.feeLP?.value?.toString() || quoteResult?.feeLP,
+      drip: quoteResult?.drip?.value?.toString() || quoteResult?.drip,
+      brc20: quoteResult?.brc20?.value?.toString() || quoteResult?.brc20,
+      team: quoteResult?.team?.value?.toString() || quoteResult?.team
     }
   });
   
@@ -742,13 +742,13 @@ export async function sellNoAutoSmart(marketId, amount) {
     marketId,
     amount,
     quoteDetails: {
-      cost: quoteResult?.cost?.value || quoteResult?.cost,
-      total: quoteResult?.total?.value || quoteResult?.total,
-      feeProtocol: quoteResult?.feeProtocol?.value || quoteResult?.feeProtocol,
-      feeLP: quoteResult?.feeLP?.value || quoteResult?.feeLP,
-      drip: quoteResult?.drip?.value || quoteResult?.drip,
-      brc20: quoteResult?.brc20?.value || quoteResult?.brc20,
-      team: quoteResult?.team?.value || quoteResult?.team
+      cost: quoteResult?.cost?.value?.toString() || quoteResult?.cost,
+      total: quoteResult?.total?.value?.toString() || quoteResult?.total,
+      feeProtocol: quoteResult?.feeProtocol?.value?.toString() || quoteResult?.feeProtocol,
+      feeLP: quoteResult?.feeLP?.value?.toString() || quoteResult?.feeLP,
+      drip: quoteResult?.drip?.value?.toString() || quoteResult?.drip,
+      brc20: quoteResult?.brc20?.value?.toString() || quoteResult?.brc20,
+      team: quoteResult?.team?.value?.toString() || quoteResult?.team
     }
   });
   

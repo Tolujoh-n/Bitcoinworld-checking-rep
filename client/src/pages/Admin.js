@@ -119,7 +119,7 @@ const Admin = () => {
 
       // step 2: generate unique marketId using timestamp
       const marketId = Date.now().toString();
-      const initialLiquidity = 1;
+      const initialLiquidity = 100;
       
       console.log("🔍 Generated timestamp-based marketId:", { marketId, type: typeof marketId });
       console.log("🔍 About to call createMarket with:", { marketId, initialLiquidity, marketIdType: typeof marketId });
