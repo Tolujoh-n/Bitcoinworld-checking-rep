@@ -13,7 +13,7 @@ import { BACKEND_URL } from "../../contexts/Bakendurl";
 
 // ------------------- CONFIG -------------------
 const CONTRACT_ADDRESS = "ST1PSHE32YTEE21FGYEVTA24N681KRGSQM4VF9XZP";
-const CONTRACT_NAME = "market-factory-v3";
+const CONTRACT_NAME = "market-factory-v2";
 
 const APP_DETAILS = {
   name: "Bitcoinworld",

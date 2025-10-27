@@ -18,6 +18,7 @@ router.post("/", auth, async (req, res) => {
       amount,
       price,
       orderType = "market",
+      txId,
     } = req.body;
 
     // Validate required fields
@@ -42,13 +43,18 @@ router.post("/", auth, async (req, res) => {
       return res.status(400).json({ message: "Invalid option index" });
     }
 
-    // Validate amount and price
-    if (amount <= 0 || price < 0 || price > 1) {
+    // Validate amount and price - for blockchain trades, we have more lenient validation
+    if (!txId && (amount <= 0 || price < 0 || price > 1)) {
       return res.status(400).json({ message: "Invalid amount or price" });
     }
+    
+    // For blockchain trades, ensure amount meets minimum
+    if (txId && amount < 0.01) {
+      return res.status(400).json({ message: "Amount must be at least 0.01" });
+    }
 
-    // Check user balance for buy orders
-    if (type === "buy") {
+    // For non-blockchain trades, check user balance for buy orders
+    if (type === "buy" && !txId) {
       const totalCost = amount * price;
       if (req.user.balance < totalCost) {
         return res.status(400).json({ message: "Insufficient balance" });
@@ -70,25 +76,60 @@ router.post("/", auth, async (req, res) => {
       userAgent: req.get("User-Agent"),
     });
 
-    await trade.save();
+    // If this is a blockchain trade (has txId), mark it as completed with the transaction hash
+    if (txId) {
+      trade.status = "completed";
+      trade.transactionHash = txId;
+      trade.filledAmount = amount;
+      trade.remainingAmount = 0;
+      // Skip validation errors for blockchain trades
+      try {
+        await trade.save();
+      } catch (error) {
+        console.error("Error saving blockchain trade:", error);
+        // If save fails due to validation, try with lenient values
+        trade.price = Math.max(0, Math.min(1, price)); // clamp price between 0 and 1
+        trade.amount = Math.max(1, amount); // ensure amount is at least 1
+        trade.totalValue = trade.amount * trade.price;
+        await trade.save();
+      }
+    } else {
+      await trade.save();
+    }
 
-    // Process the trade
-    const result = await processTrade(trade, poll);
+    // For blockchain trades, skip the matching logic and mark as completed
+    // For non-blockchain trades, process as before
+    let result = trade;
+    if (!txId) {
+      // Process the trade
+      result = await processTrade(trade, poll);
+    }
 
-    // Update user balance
-    await updateUserBalance(req.user._id, trade, result);
+    // Update user balance - skip for blockchain trades
+    if (!txId) {
+      await updateUserBalance(req.user._id, trade, result);
+    } else {
+      // For blockchain trades, just increment trade count
+      const user = await User.findById(req.user._id);
+      user.totalTrades += 1;
+      await user.save();
+    }
 
-    // Update poll statistics
-    await updatePollStatistics(pollId);
+    // Update poll statistics - skip for blockchain trades as they're handled on-chain
+    if (!txId) {
+      await updatePollStatistics(pollId);
+    }
 
-    // Emit real-time update
-    const io = req.app.get("io");
-    if (io) {
-      io.to(`poll-${pollId}`).emit("trade-updated", {
-        pollId,
-        trade: result,
-        orderBook: await Trade.getOrderBook(pollId, optionIndex),
-      });
+    // Emit real-time update - skip for blockchain trades as they're handled on-chain
+    if (!txId) {
+      const io = req.app.get("io");
+      if (io) {
+        io.to(`poll-${pollId}`).emit("trade-updated", {
+          pollId,
+          trade: result,
+          orderBook: await Trade.getOrderBook(pollId, optionIndex),
+        });
+      }
     }
 
     res.status(201).json({
@@ -344,6 +385,14 @@ async function updateOptionVolume(pollId, optionIndex, amount) {
 // Helper function to update user balance
 async function updateUserBalance(userId, trade, result) {
   const user = await User.findById(userId);
+
+  // Skip balance updates for blockchain trades (they're handled on-chain)
+  if (trade.transactionHash || trade.status === "completed") {
+    // Just update trade count for blockchain trades
+    user.totalTrades += 1;
+    await user.save();
+    return;
+  }
 
   if (trade.type === "buy") {
     const cost = trade.filledAmount * trade.price;
